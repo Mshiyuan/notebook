@@ -1,0 +1,114 @@
+/* --- 基础包装器 --- */
+#sy-notebook-wrapper {
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    color: var(--SmartThemeBodyColor);
+    transition: box-shadow 0.3s ease, border-radius 0.3s ease;
+}
+
+/* --- 极简面板模式 (Panel Mode) --- */
+/* 挂靠在输入框上方或侧边，纯色背景，不加毛玻璃，边缘干净 */
+#sy-notebook-wrapper.sy-panel-mode {
+    position: absolute;
+    bottom: calc(100% + 10px); /* 悬浮于底栏上方 */
+    right: 0;
+    width: 350px;
+    height: 400px;
+    background: var(--SmartThemeChatBackgroundColor); /* 极简纯色背景 */
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* 面板模式下隐藏拖拽手柄，因为位置是固定的 */
+.sy-panel-mode .sy-notebook-drag-handle i {
+    display: none;
+}
+.sy-panel-mode .sy-notebook-drag-handle {
+    cursor: default;
+}
+
+/* --- 悬浮模式 (Float Mode) --- */
+/* 自由移动，毛玻璃质感，可调整大小 */
+#sy-notebook-wrapper.sy-float-mode {
+    position: fixed;
+    top: 20%;
+    left: 60%;
+    width: 400px;
+    height: 500px;
+    background: var(--SmartThemeBlurTintColor); /* ST自带的半透明颜色 */
+    backdrop-filter: blur(12px); /* 毛玻璃核心 */
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    resize: both; /* 允许用户在右下角拖拽调整大小 */
+    overflow: hidden; /* 配合 resize 使用 */
+}
+
+/* 悬浮模式下显示拖拽手柄 */
+.sy-float-mode .sy-notebook-drag-handle {
+    cursor: grab;
+}
+.sy-float-mode .sy-notebook-drag-handle:active {
+    cursor: grabbing;
+}
+
+/* --- 内部元素排版 --- */
+.sy-notebook-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor);
+    background: rgba(0, 0, 0, 0.05);
+    user-select: none;
+}
+
+.sy-notebook-drag-handle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: bold;
+    flex-grow: 1;
+}
+
+.sy-notebook-controls {
+    display: flex;
+    gap: 12px;
+}
+
+.sy-icon-btn {
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.sy-icon-btn:hover {
+    opacity: 1;
+}
+
+.sy-notebook-body {
+    flex-grow: 1;
+    display: flex;
+    padding: 10px;
+}
+
+#sy-notebook-textarea {
+    width: 100%;
+    height: 100%;
+    resize: none; /* 禁用文本框自带的缩放，由外层 wrapper 控制 */
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-family: inherit;
+    font-size: 0.95em;
+    line-height: 1.5;
+    outline: none;
+}
+
+#sy-notebook-textarea::placeholder {
+    color: var(--SmartThemeQuoteColor);
+    opacity: 0.6;
+}
