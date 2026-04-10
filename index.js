@@ -2,7 +2,6 @@ import { extension_settings, getContext } from "../../../extensions.js";
 import { eventSource, event_types, saveSettingsDebounced } from "../../../../script.js";
 
 const extensionName = "characterNotebook";
-const extensionFolderPath = `scripts/extensions/third-party/${extensionName}/`;
 
 // 确保数据结构存在
 if (!extension_settings[extensionName]) {
@@ -16,7 +15,47 @@ const pluginData = extension_settings[extensionName];
 let currentChatId = null;
 let currentCharacterName = null;
 
-// 1. 拖拽逻辑
+// --- 1. 将 HTML 直接内嵌，彻底告别路径 404 错误 ---
+const notebookHTML = `
+<div id="sy-notebook-system">
+    <div id="sy-notebook-settings" class="sy-panel" style="display: none;">
+        <div class="sy-header">
+            <span>笔记设置</span>
+            <i class="fa-solid fa-xmark sy-close-btn" id="sy-close-settings"></i>
+        </div>
+        <div class="sy-body">
+            <div class="sy-setting-row">
+                <label style="cursor: pointer;"><input type="checkbox" id="sy-toggle-ball" style="margin-right: 5px;">开启桌面悬浮球</label>
+            </div>
+            <div class="sy-setting-row">
+                <label>笔记面板主题</label>
+                <select id="sy-theme-select">
+                    <option value="minimal">极简纯色 (Minimal)</option>
+                    <option value="glass">毛玻璃 (Glass)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div id="sy-notebook-ball" style="display: none;" title="点击打开笔记">
+        <i class="fa-solid fa-feather-pointed"></i>
+    </div>
+
+    <div id="sy-notebook-panel" class="sy-panel minimal" style="display: none;">
+        <div class="sy-header sy-drag-handle">
+            <span id="sy-notebook-title">笔记载入中...</span>
+            <div class="sy-controls">
+                <i class="fa-solid fa-xmark sy-close-btn" id="sy-close-panel"></i>
+            </div>
+        </div>
+        <div class="sy-body">
+            <textarea id="sy-notebook-textarea" placeholder="在此记录当前角色的设定、伏笔与灵感..."></textarea>
+        </div>
+    </div>
+</div>
+`;
+
+// --- 2. 拖拽逻辑 ---
 function makeDraggable(dragHandle, targetElement) {
     let isDragging = false;
     let startX, startY, initialLeft, initialTop;
@@ -34,6 +73,146 @@ function makeDraggable(dragHandle, targetElement) {
             if (!isDragging) return;
             targetElement.css({
                 left: initialLeft + (event.clientX - startX) + 'px',
+                top: initialTop + (event.clientY - startY) + 'px',
+                bottom: 'auto',
+                right: 'auto',
+                transform: 'none'
+            });
+        });
+
+        $(document).on('mouseup.syDrag', function() {
+            isDragging = false;
+            $(document).off('mousemove.syDrag mouseup.syDrag');
+        });
+    });
+}
+
+// --- 3. 笔记数据读写 ---
+function saveNote() {
+    if (!currentChatId || !currentCharacterName) return;
+    const content = $('#sy-notebook-textarea').val();
+    
+    if (!pluginData.notes[currentCharacterName]) pluginData.notes[currentCharacterName] = {};
+    pluginData.notes[currentCharacterName][currentChatId] = content;
+    saveSettingsDebounced();
+}
+
+function loadNote() {
+    const context = getContext();
+    currentChatId = context.chatId;
+    currentCharacterName = context.name1; 
+
+    if (!currentChatId || !currentCharacterName) {
+        $('#sy-notebook-title').text("角色笔记 (未选择)");
+        $('#sy-notebook-textarea').val("");
+        return;
+    }
+
+    $('#sy-notebook-title').text(`笔记: ${currentCharacterName}`);
+    const charNotes = pluginData.notes[currentCharacterName];
+    $('#sy-notebook-textarea').val(charNotes && charNotes[currentChatId] ? charNotes[currentChatId] : "");
+}
+
+// --- 4. 核心：死缠烂打式注入魔法棒菜单 ---
+function injectExtensionMenuButton() {
+    // 设置一个定时器，每 500ms 找一次菜单，找到了才停下来
+    const interval = setInterval(() => {
+        // 兼容 ST 各种版本可能存在的 ID
+        const extensionsMenu = document.getElementById('extensions_menu') || document.getElementById('extensionsMenu');
+        
+        if (extensionsMenu) {
+            // 如果还没注入，就注入
+            if (!document.getElementById('sy-notebook-menu-entry')) {
+                const menuEntry = document.createElement('div');
+                menuEntry.id = 'sy-notebook-menu-entry';
+                menuEntry.className = 'list-group-item flex-container flexGap5 interactable';
+                menuEntry.title = '角色笔记设置';
+                menuEntry.setAttribute('tabindex', '0');
+
+                menuEntry.innerHTML = `
+                    <span><i class="fa-solid fa-book-journal-whills fa-fw"></i></span>
+                    <span>角色笔记本</span>
+                `;
+
+                menuEntry.onclick = () => {
+                    $('#sy-notebook-settings').fadeIn(200);
+                    // 模拟点击关闭魔法棒菜单
+                    $('#extensionsMenuButton').trigger('click'); 
+                };
+
+                extensionsMenu.prepend(menuEntry);
+                console.log('Character Notebook: 菜单入口注入成功！');
+            }
+            // 找到了并处理完毕，清除定时器
+            clearInterval(interval); 
+        }
+    }, 500);
+}
+
+// --- 5. UI 与事件初始化 ---
+async function initUI() {
+    // 直接把写好的 HTML 塞进网页，100% 不会因为找不到文件报错
+    $('body').append(notebookHTML);
+
+    // 唤起死缠烂打注入器
+    injectExtensionMenuButton();
+
+    // 获取 DOM 元素
+    const ball = $('#sy-notebook-ball');
+    const settingsPanel = $('#sy-notebook-settings');
+    const notePanel = $('#sy-notebook-panel');
+
+    // 初始化配置状态
+    $('#sy-toggle-ball').prop('checked', pluginData.config.showBall);
+    $('#sy-theme-select').val(pluginData.config.theme);
+    if (pluginData.config.showBall) ball.show();
+    notePanel.removeClass('minimal glass').addClass(pluginData.config.theme);
+
+    // 设置面板逻辑
+    $('#sy-close-settings').on('click', () => settingsPanel.fadeOut(200));
+    
+    $('#sy-toggle-ball').on('change', function() {
+        pluginData.config.showBall = this.checked;
+        saveSettingsDebounced();
+        this.checked ? ball.fadeIn(200) : ball.fadeOut(200);
+    });
+
+    $('#sy-theme-select').on('change', function() {
+        const theme = $(this).val();
+        pluginData.config.theme = theme;
+        saveSettingsDebounced();
+        notePanel.removeClass('minimal glass').addClass(theme);
+    });
+
+    // 悬浮球逻辑：点击打开笔记面板
+    ball.on('click', function() {
+        if (ball.attr('data-dragging') === 'true') return; 
+        notePanel.fadeIn(200);
+        loadNote();
+    });
+
+    // 笔记面板逻辑
+    $('#sy-close-panel').on('click', () => notePanel.fadeOut(200));
+    
+    let saveTimeout;
+    $('#sy-notebook-textarea').on('input', () => {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(saveNote, 500);
+    });
+
+    // 绑定拖拽
+    makeDraggable(ball, ball);
+    makeDraggable($('#sy-notebook-panel .sy-drag-handle'), notePanel);
+
+    ball.on('mousedown', () => ball.attr('data-dragging', 'false'));
+    ball.on('mousemove', () => ball.attr('data-dragging', 'true'));
+}
+
+// 启动扩展
+jQuery(async () => {
+    await initUI();
+    eventSource.on(event_types.CHAT_CHANGED, loadNote);
+});
                 top: initialTop + (event.clientY - startY) + 'px',
                 bottom: 'auto',
                 right: 'auto',
