@@ -1,11 +1,10 @@
-console.log("【角色笔记本】脚本开始执行...");
+console.log("【角色笔记本】脚本成功加载，开始执行！");
 
 const extensionName = "characterNotebook";
 let pluginData = null;
 let currentChatId = null;
 let currentCharacterName = null;
 
-// 将 HTML 直接内嵌
 const notebookHTML = `
 <div id="sy-notebook-system">
     <div id="sy-notebook-settings" class="sy-panel" style="display: none; padding: 15px; background: var(--SmartThemeChatBackgroundColor); border: 1px solid var(--SmartThemeBorderColor); position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px; z-index: 10000; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); color: var(--SmartThemeBodyColor);">
@@ -26,11 +25,9 @@ const notebookHTML = `
             </div>
         </div>
     </div>
-
     <div id="sy-notebook-ball" style="display: none; position: fixed; top: 50%; right: 20px; width: 45px; height: 45px; background: var(--SmartThemeBlurTintColor); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; display: flex; justify-content: center; align-items: center; color: var(--SmartThemeBodyColor); font-size: 1.2em; cursor: grab; z-index: 9998; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: transform 0.2s;" title="点击打开笔记">
         <i class="fa-solid fa-feather-pointed"></i>
     </div>
-
     <div id="sy-notebook-panel" class="sy-panel minimal" style="display: none; position: fixed; top: 20%; left: 60%; width: 380px; height: 450px; z-index: 9999; display: flex; flex-direction: column; border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); color: var(--SmartThemeBodyColor); resize: both;">
         <div class="sy-header sy-drag-handle" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: rgba(0,0,0,0.1); border-bottom: 1px solid var(--SmartThemeBorderColor); user-select: none; cursor: grab;">
             <span id="sy-notebook-title">笔记载入中...</span>
@@ -46,67 +43,55 @@ const notebookHTML = `
 `;
 
 jQuery(async () => {
-    console.log("【角色笔记本】开始加载核心依赖...");
-
     let extension_settings, getContext, eventSource, event_types, saveSettingsDebounced;
     try {
         const ex = await import("../../../extensions.js");
         extension_settings = ex.extension_settings;
         getContext = ex.getContext;
-
         const sc = await import("../../../../script.js");
         eventSource = sc.eventSource;
         event_types = sc.event_types;
         saveSettingsDebounced = sc.saveSettingsDebounced;
-        console.log("【角色笔记本】依赖加载成功！");
     } catch (error) {
-        console.error("【角色笔记本】致命错误：依赖加载失败", error);
+        console.error("【角色笔记本】依赖加载失败", error);
         return;
     }
 
-    // 1. 数据初始化
     if (!extension_settings[extensionName]) {
         extension_settings[extensionName] = { config: { showBall: false, theme: 'minimal' }, notes: {} };
     }
     pluginData = extension_settings[extensionName];
 
-    // 2. 注入 HTML
     $('body').append(notebookHTML);
-    // 默认隐藏面板
-    $('#sy-notebook-panel').hide(); 
 
-    // 3. 核心修复：直接狙击 data_bank_wand_container
+    // 抄字体管理器作业：使用 extensions_menu
     const injectInterval = setInterval(() => {
-        // 兼容写法，优先找 data_bank_wand_container
-        const container = $('#data_bank_wand_container').length ? $('#data_bank_wand_container') : $('#extensions_menu');
-        
-        if (container.length > 0) {
-            if ($('#sy-notebook-menu-entry').length === 0) {
-                // 标准的酒馆菜单条目格式
-                container.append(`
-                    <div id="sy-notebook-menu-entry" class="list-group-item flex-container flexGap5 interactable" tabindex="0" title="角色笔记">
-                        <i class="fa-solid fa-book-journal-whills fa-fw"></i>
-                        <span>角色笔记本</span>
-                    </div>
-                `);
+        const extensionsMenu = document.getElementById('extensions_menu') || document.getElementById('extensionsMenu');
+        if (extensionsMenu) {
+            if (!document.getElementById('sy-notebook-menu-entry')) {
+                const menuEntry = document.createElement('div');
+                menuEntry.id = 'sy-notebook-menu-entry';
+                menuEntry.className = 'list-group-item flex-container flexGap5 interactable';
+                menuEntry.title = '角色笔记设置';
+                menuEntry.setAttribute('tabindex', '0');
+                menuEntry.innerHTML = '<span><i class="fa-solid fa-book-journal-whills fa-fw"></i></span><span>角色笔记本</span>';
                 
-                $('#sy-notebook-menu-entry').on('click', () => {
+                menuEntry.onclick = () => {
                     $('#sy-notebook-settings').fadeIn(200);
-                    // 点击后自动关闭魔法棒下拉框
                     $('#extensionsMenuButton').trigger('click'); 
-                });
-                console.log("【角色笔记本】按钮注入成功，完美嵌入扩展栏！");
+                };
+                
+                extensionsMenu.prepend(menuEntry);
+                console.log("【角色笔记本】入口按钮注入成功！");
             }
             clearInterval(injectInterval);
         }
     }, 500);
 
-    // 4. 获取 DOM
     const ball = $('#sy-notebook-ball');
     const settingsPanel = $('#sy-notebook-settings');
     const notePanel = $('#sy-notebook-panel');
 
-    // 5. 应用配置
     function applyTheme() {
         if (pluginData.config.theme === 'glass') {
             notePanel.css({ 'background': 'var(--SmartThemeBlurTintColor)', 'backdrop-filter': 'blur(15px)', '-webkit-backdrop-filter': 'blur(15px)', 'border': '1px solid rgba(255,255,255,0.1)' });
@@ -120,7 +105,6 @@ jQuery(async () => {
     if (pluginData.config.showBall) ball.show();
     applyTheme();
 
-    // 6. 交互绑定
     $('#sy-close-settings').on('click', () => settingsPanel.fadeOut(200));
     
     $('#sy-toggle-ball').on('change', function() {
@@ -143,7 +127,6 @@ jQuery(async () => {
 
     $('#sy-close-panel').on('click', () => notePanel.fadeOut(200));
 
-    // 7. 笔记读写逻辑
     function saveNote() {
         if (!currentChatId || !currentCharacterName) return;
         const content = $('#sy-notebook-textarea').val();
@@ -172,7 +155,6 @@ jQuery(async () => {
         saveTimeout = setTimeout(saveNote, 500);
     });
 
-    // 8. 拖拽逻辑
     function makeDraggable(dragHandle, targetElement) {
         let isDragging = false;
         let startX, startY, initialLeft, initialTop;
