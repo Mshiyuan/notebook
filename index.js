@@ -16,7 +16,7 @@ const pluginData = extension_settings[extensionName];
 let currentChatId = null;
 let currentCharacterName = null;
 
-// 1. 拖拽逻辑 (支持悬浮球和面板)
+// 1. 拖拽逻辑
 function makeDraggable(dragHandle, targetElement) {
     let isDragging = false;
     let startX, startY, initialLeft, initialTop;
@@ -34,6 +34,157 @@ function makeDraggable(dragHandle, targetElement) {
             if (!isDragging) return;
             targetElement.css({
                 left: initialLeft + (event.clientX - startX) + 'px',
+                top: initialTop + (event.clientY - startY) + 'px',
+                bottom: 'auto',
+                right: 'auto',
+                transform: 'none'
+            });
+        });
+
+        $(document).on('mouseup.syDrag', function() {
+            isDragging = false;
+            $(document).off('mousemove.syDrag mouseup.syDrag');
+        });
+    });
+}
+
+// 2. 笔记数据读写
+function saveNote() {
+    if (!currentChatId || !currentCharacterName) return;
+    const content = $('#sy-notebook-textarea').val();
+    
+    if (!pluginData.notes[currentCharacterName]) pluginData.notes[currentCharacterName] = {};
+    pluginData.notes[currentCharacterName][currentChatId] = content;
+    saveSettingsDebounced();
+}
+
+function loadNote() {
+    const context = getContext();
+    currentChatId = context.chatId;
+    currentCharacterName = context.name1; 
+
+    if (!currentChatId || !currentCharacterName) {
+        $('#sy-notebook-title').text("角色笔记 (未选择)");
+        $('#sy-notebook-textarea').val("");
+        return;
+    }
+
+    $('#sy-notebook-title').text(`笔记: ${currentCharacterName}`);
+    const charNotes = pluginData.notes[currentCharacterName];
+    $('#sy-notebook-textarea').val(charNotes && charNotes[currentChatId] ? charNotes[currentChatId] : "");
+}
+
+// 3. 核心：注入扩展菜单按钮 (带轮询重试机制)
+function injectExtensionMenuButton(retryCount = 0) {
+    const MAX_RETRIES = 10;
+    const RETRY_DELAY = 500;
+
+    // 获取 ST 的扩展菜单容器
+    const extensionsMenu = document.getElementById('extensions_menu');
+
+    if (extensionsMenu) {
+        if (document.getElementById('sy-notebook-menu-entry')) return; // 防止重复注入
+
+        // 严格按照原生格式创建条目
+        const menuEntry = document.createElement('div');
+        menuEntry.id = 'sy-notebook-menu-entry';
+        menuEntry.className = 'list-group-item flex-container flexGap5 interactable';
+        menuEntry.title = '角色笔记设置';
+        menuEntry.setAttribute('tabindex', '0');
+
+        const iconSpan = document.createElement('span');
+        iconSpan.innerHTML = '<i class="fa-solid fa-book-journal-whills fa-fw"></i>';
+        menuEntry.appendChild(iconSpan);
+
+        const textSpan = document.createElement('span');
+        textSpan.textContent = '角色笔记本';
+        menuEntry.appendChild(textSpan);
+
+        // 点击事件：打开设置面板并关闭原有的抽屉
+        menuEntry.onclick = () => {
+            $('#sy-notebook-settings').fadeIn(200);
+            $('#extensionsMenuButton').trigger('click'); 
+        };
+
+        // 插入到菜单最上方
+        extensionsMenu.prepend(menuEntry);
+        console.log('Character Notebook: 菜单按钮注入成功。');
+    } else {
+        if (retryCount < MAX_RETRIES) {
+            setTimeout(() => injectExtensionMenuButton(retryCount + 1), RETRY_DELAY);
+        } else {
+            console.error('Character Notebook: 找不到扩展菜单，注入失败。');
+        }
+    }
+}
+
+// 4. UI 与事件初始化
+async function initUI() {
+    const htmlUrl = `${extensionFolderPath}template.html`;
+    const htmlContent = await $.get(htmlUrl);
+    
+    // 注入核心 UI 到 body
+    $('body').append(htmlContent);
+
+    // 触发按钮注入
+    injectExtensionMenuButton();
+
+    // 获取 DOM 元素
+    const ball = $('#sy-notebook-ball');
+    const settingsPanel = $('#sy-notebook-settings');
+    const notePanel = $('#sy-notebook-panel');
+
+    // 初始化配置状态
+    $('#sy-toggle-ball').prop('checked', pluginData.config.showBall);
+    $('#sy-theme-select').val(pluginData.config.theme);
+    if (pluginData.config.showBall) ball.show();
+    notePanel.removeClass('minimal glass').addClass(pluginData.config.theme);
+
+    // 设置面板逻辑
+    $('#sy-close-settings').on('click', () => settingsPanel.fadeOut(200));
+    
+    $('#sy-toggle-ball').on('change', function() {
+        pluginData.config.showBall = this.checked;
+        saveSettingsDebounced();
+        this.checked ? ball.fadeIn(200) : ball.fadeOut(200);
+    });
+
+    $('#sy-theme-select').on('change', function() {
+        const theme = $(this).val();
+        pluginData.config.theme = theme;
+        saveSettingsDebounced();
+        notePanel.removeClass('minimal glass').addClass(theme);
+    });
+
+    // 悬浮球逻辑：点击打开笔记面板
+    ball.on('click', function() {
+        if (ball.attr('data-dragging') === 'true') return; 
+        notePanel.fadeIn(200);
+        loadNote();
+    });
+
+    // 笔记面板逻辑
+    $('#sy-close-panel').on('click', () => notePanel.fadeOut(200));
+    
+    let saveTimeout;
+    $('#sy-notebook-textarea').on('input', () => {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(saveNote, 500);
+    });
+
+    // 绑定拖拽
+    makeDraggable(ball, ball);
+    makeDraggable($('#sy-notebook-panel .sy-drag-handle'), notePanel);
+
+    ball.on('mousedown', () => ball.attr('data-dragging', 'false'));
+    ball.on('mousemove', () => ball.attr('data-dragging', 'true'));
+}
+
+// 启动扩展
+jQuery(async () => {
+    await initUI();
+    eventSource.on(event_types.CHAT_CHANGED, loadNote);
+});
                 top: initialTop + (event.clientY - startY) + 'px',
                 bottom: 'auto',
                 right: 'auto',
