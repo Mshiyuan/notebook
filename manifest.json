@@ -1,9 +1,12 @@
 {
-    "name": "Notebook",
-    "display_name": "Notebook",
-    "loading_order": 1,
+    "name": "character-notebook",
+    "display_name": "Character Notebook",
+    "loading_order": 100,
+    "requires": [],
+    "optional": [],
     "js": "index.js",
+    "css": "style.css",
     "author": "时鸢",
-    "version": "1.5.0",
-    "description": "为每个角色卡附加私人笔记本。"
+    "version": "1.0.0",
+    "description": "为每个角色卡附加私人笔记本，支持多存档、悬浮窗、自定义主题。"
 }
