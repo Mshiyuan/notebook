@@ -1,124 +1,645 @@
-/* --- 悬浮球 --- */
-#sy-notebook-ball {
-    position: fixed;
-    top: 50%;
-    right: 20px;
-    width: 45px;
-    height: 45px;
-    background: var(--SmartThemeBlurTintColor);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: var(--SmartThemeBodyColor);
-    font-size: 1.2em;
-    cursor: grab;
-    z-index: 9998;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    transition: transform 0.2s;
-}
-#sy-notebook-ball:hover {
-    transform: scale(1.1);
-}
-#sy-notebook-ball:active {
-    cursor: grabbing;
+/**
+ * Character Notebook - Styles
+ * Author: 时鸢
+ */
+
+/* ============================================================
+   CSS 变量 —— 各主题覆盖这些变量即可
+   ============================================================ */
+.cn-panel {
+    --cn-bg: #1a1a1a;
+    --cn-bg-secondary: #242424;
+    --cn-bg-hover: #2e2e2e;
+    --cn-bg-active: #333;
+    --cn-text: #e8e8e8;
+    --cn-text-secondary: #999;
+    --cn-text-muted: #666;
+    --cn-border: #333;
+    --cn-accent: #888;
+    --cn-radius: 12px;
+    --cn-radius-sm: 8px;
+    --cn-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    --cn-backdrop: none;
+    --cn-font: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --cn-transition: 0.15s ease;
 }
 
-/* --- 面板基础统一样式 --- */
-#sy-notebook-system .sy-panel {
+/* ============================================================
+   主题：极简黑白（默认）
+   ============================================================ */
+.cn-theme-minimal {
+    --cn-bg: #1a1a1a;
+    --cn-bg-secondary: #242424;
+    --cn-bg-hover: #2e2e2e;
+    --cn-bg-active: #383838;
+    --cn-text: #e8e8e8;
+    --cn-text-secondary: #aaa;
+    --cn-text-muted: #666;
+    --cn-border: #333;
+    --cn-accent: #ccc;
+    --cn-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --cn-backdrop: none;
+}
+
+/* ============================================================
+   主题：毛玻璃
+   ============================================================ */
+.cn-theme-glass {
+    --cn-bg: rgba(20, 20, 28, 0.72);
+    --cn-bg-secondary: rgba(255, 255, 255, 0.05);
+    --cn-bg-hover: rgba(255, 255, 255, 0.08);
+    --cn-bg-active: rgba(255, 255, 255, 0.12);
+    --cn-text: #f0f0f0;
+    --cn-text-secondary: rgba(255, 255, 255, 0.65);
+    --cn-text-muted: rgba(255, 255, 255, 0.35);
+    --cn-border: rgba(255, 255, 255, 0.1);
+    --cn-accent: rgba(255, 255, 255, 0.8);
+    --cn-shadow: 0 8px 40px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    --cn-backdrop: blur(24px) saturate(1.4);
+}
+
+.cn-theme-glass .cn-panel,
+.cn-theme-glass {
+    backdrop-filter: var(--cn-backdrop);
+    -webkit-backdrop-filter: var(--cn-backdrop);
+}
+
+/* ============================================================
+   主题：跟随ST
+   ============================================================ */
+.cn-theme-follow-st {
+    --cn-bg: var(--SmartThemeChatBackgroundColor, #1a1a1a);
+    --cn-bg-secondary: var(--SmartThemeBlurTintColor, #242424);
+    --cn-bg-hover: var(--SmartThemeBlurTintColor, #2e2e2e);
+    --cn-bg-active: var(--SmartThemeBorderColor, #383838);
+    --cn-text: var(--SmartThemeBodyColor, #e8e8e8);
+    --cn-text-secondary: var(--SmartThemeEmColor, #aaa);
+    --cn-text-muted: var(--SmartThemeQuoteColor, #666);
+    --cn-border: var(--SmartThemeBorderColor, #333);
+    --cn-accent: var(--SmartThemeBodyColor, #ccc);
+    --cn-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --cn-backdrop: none;
+}
+
+/* ============================================================
+   遮罩
+   ============================================================ */
+.cn-overlay {
     position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 9998;
+}
+
+/* ============================================================
+   主面板
+   ============================================================ */
+.cn-panel {
+    position: fixed;
+    top: 8vh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90vw;
+    max-width: 400px;
+    height: 72vh;
+    max-height: 680px;
     z-index: 9999;
     display: flex;
     flex-direction: column;
-    border-radius: 10px;
+    background: var(--cn-bg);
+    border: 1px solid var(--cn-border);
+    border-radius: var(--cn-radius);
+    box-shadow: var(--cn-shadow);
+    color: var(--cn-text);
+    font-family: var(--cn-font);
+    font-size: 14px;
     overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    color: var(--SmartThemeBodyColor);
+    backdrop-filter: var(--cn-backdrop);
+    -webkit-backdrop-filter: var(--cn-backdrop);
 }
 
-/* 设置面板特定尺寸 */
-#sy-notebook-settings {
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 300px;
-    background: var(--SmartThemeChatBackgroundColor);
-    border: 1px solid var(--SmartThemeBorderColor);
+/* 悬浮模式 */
+.cn-panel.cn-floating {
+    transform: none;
+    transition: none;
 }
 
-/* 笔记面板特定尺寸 */
-#sy-notebook-panel {
-    top: 20%;
-    left: 60%;
-    width: 380px;
-    height: 450px;
-    resize: both; /* 允许调整大小 */
+/* ============================================================
+   视图容器
+   ============================================================ */
+.cn-view {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
 }
 
-/* --- 主题切换：极简纯色 vs 毛玻璃 --- */
-#sy-notebook-panel.minimal {
-    background: var(--SmartThemeChatBackgroundColor);
-    border: 1px solid var(--SmartThemeBorderColor);
-}
-#sy-notebook-panel.glass {
-    background: var(--SmartThemeBlurTintColor);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    border: 1px solid rgba(255,255,255,0.1);
+/* ============================================================
+   顶部栏
+   ============================================================ */
+.cn-topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--cn-border);
+    min-height: 48px;
+    flex-shrink: 0;
 }
 
-/* --- 内部元素布局 --- */
-#sy-notebook-system .sy-header {
+.cn-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.cn-char-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    flex: 1;
+    min-width: 0;
+    padding: 2px 4px;
+    border-radius: var(--cn-radius-sm);
+    transition: background var(--cn-transition);
+}
+
+.cn-char-info:hover {
+    background: var(--cn-bg-hover);
+}
+
+.cn-char-name {
+    font-weight: 600;
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cn-view-title {
+    font-weight: 600;
+    font-size: 15px;
+    flex: 1;
+}
+
+/* ============================================================
+   头像
+   ============================================================ */
+.cn-avatar-wrap {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--cn-bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cn-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cn-avatar-fallback {
+    color: var(--cn-text-muted);
+    font-size: 14px;
+}
+
+/* ============================================================
+   通用按钮
+   ============================================================ */
+.cn-btn-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--cn-text-secondary);
+    border-radius: var(--cn-radius-sm);
+    cursor: pointer;
+    transition: all var(--cn-transition);
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.cn-btn-icon:hover {
+    background: var(--cn-bg-hover);
+    color: var(--cn-text);
+}
+
+/* ============================================================
+   编辑器视图
+   ============================================================ */
+.cn-archive-title-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--cn-border);
+    flex-shrink: 0;
+}
+
+.cn-archive-title-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--cn-text);
+    font-size: 15px;
+    font-weight: 600;
+    font-family: var(--cn-font);
+    outline: none;
+    padding: 4px 0;
+}
+
+.cn-archive-title-input::placeholder {
+    color: var(--cn-text-muted);
+}
+
+.cn-save-status {
+    font-size: 12px;
+    color: var(--cn-text-muted);
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.cn-editor-area {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    padding: 0;
+}
+
+.cn-textarea {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    color: var(--cn-text);
+    font-family: var(--cn-font);
+    font-size: 14px;
+    line-height: 1.7;
+    padding: 12px 14px;
+    resize: none;
+    outline: none;
+    overflow-y: auto;
+}
+
+.cn-textarea::placeholder {
+    color: var(--cn-text-muted);
+}
+
+/* 滚动条 */
+.cn-textarea::-webkit-scrollbar,
+.cn-archive-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.cn-textarea::-webkit-scrollbar-track,
+.cn-archive-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.cn-textarea::-webkit-scrollbar-thumb,
+.cn-archive-list::-webkit-scrollbar-thumb {
+    background: var(--cn-border);
+    border-radius: 2px;
+}
+
+/* ============================================================
+   存档列表视图
+   ============================================================ */
+.cn-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--cn-border);
+    flex-shrink: 0;
+}
+
+.cn-search-icon {
+    color: var(--cn-text-muted);
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.cn-search-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--cn-text);
+    font-family: var(--cn-font);
+    font-size: 14px;
+    outline: none;
+    padding: 4px 0;
+}
+
+.cn-search-input::placeholder {
+    color: var(--cn-text-muted);
+}
+
+.cn-archive-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cn-archive-card {
+    position: relative;
+    padding: 10px 12px;
+    background: var(--cn-bg-secondary);
+    border: 1px solid var(--cn-border);
+    border-radius: var(--cn-radius-sm);
+    cursor: pointer;
+    transition: all var(--cn-transition);
+}
+
+.cn-archive-card:hover {
+    background: var(--cn-bg-hover);
+    border-color: var(--cn-text-muted);
+}
+
+.cn-archive-card.cn-active {
+    border-color: var(--cn-accent);
+    background: var(--cn-bg-active);
+}
+
+.cn-card-header {
     display: flex;
     justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.cn-card-title {
+    font-weight: 600;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.cn-card-date {
+    font-size: 11px;
+    color: var(--cn-text-muted);
+    flex-shrink: 0;
+}
+
+.cn-card-preview {
+    font-size: 12px;
+    color: var(--cn-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 24px;
+}
+
+.cn-card-delete {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 24px;
+    height: 24px;
+    display: flex;
     align-items: center;
-    padding: 10px 15px;
-    background: rgba(0,0,0,0.1);
-    border-bottom: 1px solid var(--SmartThemeBorderColor);
-    user-select: none;
-}
-
-.sy-drag-handle {
-    cursor: grab;
-}
-.sy-drag-handle:active {
-    cursor: grabbing;
-}
-
-.sy-close-btn {
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--cn-text-muted);
     cursor: pointer;
-    opacity: 0.6;
+    border-radius: 4px;
+    font-size: 11px;
+    opacity: 0;
+    transition: all var(--cn-transition);
 }
-.sy-close-btn:hover {
+
+.cn-archive-card:hover .cn-card-delete {
     opacity: 1;
 }
 
-#sy-notebook-system .sy-body {
-    flex-grow: 1;
-    padding: 15px;
+.cn-card-delete:hover {
+    background: rgba(220, 60, 60, 0.2);
+    color: #e55;
+}
+
+.cn-btn-add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 4px 8px 8px;
+    padding: 10px;
+    border: 1px dashed var(--cn-border);
+    background: transparent;
+    color: var(--cn-text-secondary);
+    border-radius: var(--cn-radius-sm);
+    cursor: pointer;
+    font-size: 16px;
+    transition: all var(--cn-transition);
+    flex-shrink: 0;
+}
+
+.cn-btn-add:hover {
+    border-color: var(--cn-accent);
+    color: var(--cn-text);
+    background: var(--cn-bg-hover);
+}
+
+.cn-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: var(--cn-text-muted);
+    font-size: 14px;
+    padding: 40px 0;
+}
+
+/* ============================================================
+   设置视图
+   ============================================================ */
+.cn-settings-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 14px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 16px;
 }
 
-.sy-setting-row {
+.cn-setting-group {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 6px;
 }
 
-#sy-notebook-textarea {
+.cn-setting-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.cn-setting-label {
+    font-size: 14px;
+    color: var(--cn-text);
+}
+
+.cn-select {
     width: 100%;
-    height: 100%;
-    resize: none;
-    background: transparent;
-    border: none;
-    color: inherit;
-    font-family: inherit;
-    font-size: 0.95em;
-    line-height: 1.6;
+    padding: 8px 10px;
+    background: var(--cn-bg-secondary);
+    color: var(--cn-text);
+    border: 1px solid var(--cn-border);
+    border-radius: var(--cn-radius-sm);
+    font-family: var(--cn-font);
+    font-size: 13px;
     outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.cn-select:focus {
+    border-color: var(--cn-accent);
+}
+
+.cn-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--cn-accent);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.cn-custom-css-input {
+    width: 100%;
+    min-height: 100px;
+    padding: 8px 10px;
+    background: var(--cn-bg-secondary);
+    color: var(--cn-text);
+    border: 1px solid var(--cn-border);
+    border-radius: var(--cn-radius-sm);
+    font-family: "Cascadia Code", "Fira Code", monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    resize: vertical;
+    outline: none;
+}
+
+.cn-custom-css-input:focus {
+    border-color: var(--cn-accent);
+}
+
+.cn-version-info {
+    font-size: 11px;
+    color: var(--cn-text-muted);
+    text-align: center;
+    padding-top: 8px;
+    border-top: 1px solid var(--cn-border);
+}
+
+/* ============================================================
+   缩放手柄
+   ============================================================ */
+.cn-resize-handle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 18px;
+    height: 18px;
+    cursor: nwse-resize;
+    z-index: 10;
+}
+
+.cn-resize-handle::after {
+    content: "";
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--cn-text-muted);
+    border-bottom: 2px solid var(--cn-text-muted);
+    opacity: 0.5;
+}
+
+/* ============================================================
+   悬浮球
+   ============================================================ */
+.cn-ball {
+    position: fixed;
+    top: 50vh;
+    right: 14px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(20, 20, 28, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 9990;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    user-select: none;
+    touch-action: none;
+}
+
+.cn-ball:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+.cn-ball:active {
+    transform: scale(0.95);
+}
+
+/* ============================================================
+   扩展菜单按钮
+   ============================================================ */
+#cn-menu-entry {
+    cursor: pointer;
+}
+
+#cn-menu-entry:hover {
+    opacity: 1 !important;
+}
+
+/* ============================================================
+   移动端适配
+   ============================================================ */
+@media (max-width: 480px) {
+    .cn-panel:not(.cn-floating) {
+        width: 94vw;
+        max-width: none;
+        height: 75vh;
+        top: 5vh;
+    }
+}
+
+@media (min-width: 768px) {
+    .cn-panel:not(.cn-floating) {
+        max-width: 420px;
+        height: 68vh;
+    }
 }
