@@ -5,20 +5,25 @@
  * License: MIT
  */
 
-import { getContext, extension_settings, saveSettingsDebounced } from "../../../extensions.js";
-
 const EXT_NAME = "cn-notebook";
 const VERSION = "1.0.0";
+
+console.log(`[${EXT_NAME}] 脚本开始加载...`);
 
 // ============================================================
 //  默认配置
 // ============================================================
 const DEFAULT_CONFIG = {
     showBall: false,
-    theme: "minimal",       // minimal | glass | follow-st | custom
+    theme: "minimal",
     customCSS: "",
-    collapseOnBlur: false,  // 点空白收起面板
+    collapseOnBlur: false,
 };
+
+// 运行时引用（动态导入后填充）
+let extension_settings = null;
+let getContext = null;
+let saveSettingsDebounced = null;
 
 function ensureData() {
     if (!extension_settings[EXT_NAME]) {
@@ -27,7 +32,6 @@ function ensureData() {
     const d = extension_settings[EXT_NAME];
     if (!d.config) d.config = { ...DEFAULT_CONFIG };
     if (!d.notes) d.notes = {};
-    // 补全新增字段
     for (const k of Object.keys(DEFAULT_CONFIG)) {
         if (d.config[k] === undefined) d.config[k] = DEFAULT_CONFIG[k];
     }
@@ -47,8 +51,7 @@ function getCharKey() {
 function getCharName() {
     const ctx = getContext();
     if (ctx.characterId == null) return null;
-    const char = ctx.characters?.[ctx.characterId];
-    return char?.name || "未知角色";
+    return ctx.characters?.[ctx.characterId]?.name || "未知角色";
 }
 
 function getCharAvatar() {
@@ -96,53 +99,48 @@ function formatDate(ts) {
     return `${mm}-${dd} ${hh}:${mi}`;
 }
 
+function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+}
+
 // ============================================================
-//  状态管理
+//  状态
 // ============================================================
 let state = {
-    currentView: "editor",  // editor | archives | settings
+    currentView: "editor",
     currentArchiveId: null,
     isFloating: false,
     isPanelOpen: false,
-    isBallVisible: false,
 };
 
 // ============================================================
-//  HTML 模板
+//  HTML
 // ============================================================
 function buildHTML() {
     return `
-<!-- 悬浮球 -->
 <div id="cn-ball" class="cn-ball" style="display:none;" title="打开笔记本">
     <i class="fa-solid fa-feather-pointed"></i>
 </div>
 
-<!-- 遮罩 -->
 <div id="cn-overlay" class="cn-overlay" style="display:none;"></div>
 
-<!-- 主面板 -->
 <div id="cn-panel" class="cn-panel cn-theme-minimal" style="display:none;">
-
-    <!-- ===== 编辑器视图 ===== -->
+    <!-- 编辑器 -->
     <div id="cn-view-editor" class="cn-view">
         <div class="cn-topbar">
-            <button class="cn-btn-icon cn-go-settings" title="设置">
-                <i class="fa-solid fa-gear"></i>
-            </button>
+            <button class="cn-btn-icon cn-go-settings" title="设置"><i class="fa-solid fa-gear"></i></button>
             <div class="cn-char-info cn-go-archives" title="点击查看存档列表">
                 <div class="cn-avatar-wrap">
-                    <img id="cn-avatar" class="cn-avatar" src="" alt="">
+                    <img class="cn-avatar" src="" alt="" style="display:none;">
                     <div class="cn-avatar-fallback"><i class="fa-solid fa-user"></i></div>
                 </div>
-                <span id="cn-char-name" class="cn-char-name">未选择角色</span>
+                <span class="cn-char-name">未选择角色</span>
             </div>
             <div class="cn-topbar-right">
-                <button class="cn-btn-icon cn-btn-float" title="悬浮模式">
-                    <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
-                </button>
-                <button class="cn-btn-icon cn-btn-close" title="关闭">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+                <button class="cn-btn-icon cn-btn-float" title="悬浮模式"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>
+                <button class="cn-btn-icon cn-btn-close" title="关闭"><i class="fa-solid fa-xmark"></i></button>
             </div>
         </div>
         <div class="cn-archive-title-bar">
@@ -154,23 +152,19 @@ function buildHTML() {
         </div>
     </div>
 
-    <!-- ===== 存档列表视图 ===== -->
+    <!-- 存档列表 -->
     <div id="cn-view-archives" class="cn-view" style="display:none;">
         <div class="cn-topbar">
-            <button class="cn-btn-icon cn-go-back-editor" title="返回">
-                <i class="fa-solid fa-arrow-left"></i>
-            </button>
+            <button class="cn-btn-icon cn-go-back-editor" title="返回"><i class="fa-solid fa-arrow-left"></i></button>
             <div class="cn-char-info">
                 <div class="cn-avatar-wrap">
-                    <img id="cn-avatar-list" class="cn-avatar" src="" alt="">
+                    <img class="cn-avatar" src="" alt="" style="display:none;">
                     <div class="cn-avatar-fallback"><i class="fa-solid fa-user"></i></div>
                 </div>
-                <span id="cn-char-name-list" class="cn-char-name">存档列表</span>
+                <span class="cn-char-name">存档列表</span>
             </div>
             <div class="cn-topbar-right">
-                <button class="cn-btn-icon cn-btn-close" title="关闭">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+                <button class="cn-btn-icon cn-btn-close" title="关闭"><i class="fa-solid fa-xmark"></i></button>
             </div>
         </div>
         <div class="cn-search-bar">
@@ -178,17 +172,13 @@ function buildHTML() {
             <input id="cn-search" class="cn-search-input" type="text" placeholder="搜索笔记..." />
         </div>
         <div id="cn-archive-list" class="cn-archive-list"></div>
-        <button id="cn-archive-add" class="cn-btn-add" title="新建笔记">
-            <i class="fa-solid fa-plus"></i>
-        </button>
+        <button id="cn-archive-add" class="cn-btn-add" title="新建笔记"><i class="fa-solid fa-plus"></i></button>
     </div>
 
-    <!-- ===== 设置视图 ===== -->
+    <!-- 设置 -->
     <div id="cn-view-settings" class="cn-view" style="display:none;">
         <div class="cn-topbar">
-            <button class="cn-btn-icon cn-go-back-editor" title="返回">
-                <i class="fa-solid fa-arrow-left"></i>
-            </button>
+            <button class="cn-btn-icon cn-go-back-editor" title="返回"><i class="fa-solid fa-arrow-left"></i></button>
             <span class="cn-view-title">设置</span>
             <div class="cn-topbar-right"></div>
         </div>
@@ -220,14 +210,12 @@ function buildHTML() {
         </div>
     </div>
 
-    <!-- 缩放手柄（悬浮模式） -->
     <div id="cn-resize-handle" class="cn-resize-handle" style="display:none;"></div>
-</div>
-`;
+</div>`;
 }
 
 // ============================================================
-//  视图切换
+//  视图
 // ============================================================
 function showView(name) {
     state.currentView = name;
@@ -243,10 +231,7 @@ function applyTheme() {
     const panel = $("#cn-panel");
     panel.removeClass("cn-theme-minimal cn-theme-glass cn-theme-follow-st cn-theme-custom");
     panel.addClass(`cn-theme-${d.config.theme}`);
-
-    // 移除旧的自定义样式
     $("#cn-custom-style").remove();
-
     if (d.config.theme === "custom" && d.config.customCSS) {
         $("head").append(`<style id="cn-custom-style">${d.config.customCSS}</style>`);
     }
@@ -257,15 +242,12 @@ function applyTheme() {
 // ============================================================
 function openPanel() {
     state.isPanelOpen = true;
-    const d = ensureData();
-
     if (state.isFloating) {
         $("#cn-panel").fadeIn(150);
     } else {
         $("#cn-overlay").fadeIn(150);
         $("#cn-panel").fadeIn(150);
     }
-
     loadCurrentChar();
 }
 
@@ -276,14 +258,13 @@ function closePanel() {
 }
 
 // ============================================================
-//  加载角色信息
+//  角色数据加载
 // ============================================================
 function loadCurrentChar() {
     const charKey = getCharKey();
     const charName = getCharName();
     const avatarUrl = getCharAvatar();
 
-    // 更新头像和名称
     $(".cn-char-name").text(charKey ? charName : "未选择角色");
 
     if (avatarUrl) {
@@ -303,27 +284,21 @@ function loadCurrentChar() {
     $("#cn-textarea").prop("disabled", false);
     $("#cn-archive-title").prop("disabled", false);
 
-    // 加载第一个存档（如果没有就创建）
     const archives = getArchives(charKey);
     if (!archives.length) {
         createArchive(charKey, "默认笔记");
     }
-
     if (!state.currentArchiveId || !archives.find(a => a.id === state.currentArchiveId)) {
         state.currentArchiveId = archives[0].id;
     }
-
     loadArchiveContent();
 }
 
 function loadArchiveContent() {
     const charKey = getCharKey();
     if (!charKey || !state.currentArchiveId) return;
-
-    const archives = getArchives(charKey);
-    const archive = archives.find(a => a.id === state.currentArchiveId);
+    const archive = getArchives(charKey).find(a => a.id === state.currentArchiveId);
     if (!archive) return;
-
     $("#cn-textarea").val(archive.content);
     $("#cn-archive-title").val(archive.title);
     $("#cn-save-status").text("");
@@ -374,12 +349,6 @@ function renderArchiveList(filter) {
     });
 }
 
-function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
-}
-
 // ============================================================
 //  保存
 // ============================================================
@@ -388,11 +357,8 @@ let saveTimer = null;
 function saveCurrentNote() {
     const charKey = getCharKey();
     if (!charKey || !state.currentArchiveId) return;
-
-    const archives = getArchives(charKey);
-    const archive = archives.find(a => a.id === state.currentArchiveId);
+    const archive = getArchives(charKey).find(a => a.id === state.currentArchiveId);
     if (!archive) return;
-
     archive.content = $("#cn-textarea").val();
     archive.title = $("#cn-archive-title").val() || "未命名笔记";
     archive.updated = Date.now();
@@ -415,15 +381,12 @@ function enterFloat() {
     panel.addClass("cn-floating");
     $("#cn-resize-handle").show();
     $("#cn-overlay").hide();
-
-    // 居中放置
     panel.css({
         left: "calc(50vw - 180px)",
         top: "calc(50vh - 250px)",
         width: "360px",
         height: "500px",
     });
-
     $(".cn-btn-float i").attr("class", "fa-solid fa-compress");
 }
 
@@ -434,7 +397,6 @@ function exitFloat() {
     $("#cn-resize-handle").hide();
     panel.css({ left: "", top: "", width: "", height: "" });
     $(".cn-btn-float i").attr("class", "fa-solid fa-up-right-and-down-left-from-center");
-
     if (state.isPanelOpen) {
         $("#cn-overlay").show();
     }
@@ -444,15 +406,13 @@ function exitFloat() {
 //  拖拽 & 缩放
 // ============================================================
 function setupDrag() {
-    let dragging = false;
-    let ox = 0, oy = 0;
+    let dragging = false, ox = 0, oy = 0;
 
     function getPos(e) {
         const t = e.originalEvent?.touches;
         return t ? { x: t[0].clientX, y: t[0].clientY } : { x: e.clientX, y: e.clientY };
     }
 
-    // 面板拖拽
     $(document).on("mousedown touchstart", ".cn-floating .cn-topbar", function (e) {
         if ($(e.target).closest(".cn-btn-icon, .cn-char-info").length) return;
         dragging = true;
@@ -471,7 +431,6 @@ function setupDrag() {
 
     $(document).on("mouseup touchend", function () { dragging = false; });
 
-    // 缩放
     let resizing = false;
     $(document).on("mousedown touchstart", "#cn-resize-handle", function (e) {
         resizing = true;
@@ -492,9 +451,7 @@ function setupDrag() {
     $(document).on("mouseup touchend", function () { resizing = false; });
 
     // 悬浮球拖拽
-    let ballDrag = false;
-    let ballMoved = false;
-    let bx = 0, by = 0;
+    let ballDrag = false, ballMoved = false, bx = 0, by = 0;
 
     $(document).on("mousedown touchstart", "#cn-ball", function (e) {
         ballDrag = true;
@@ -509,16 +466,11 @@ function setupDrag() {
         if (!ballDrag) return;
         ballMoved = true;
         const pos = getPos(e);
-        $("#cn-ball").css({
-            left: (pos.x - bx) + "px",
-            top: (pos.y - by) + "px",
-            right: "auto",
-        });
+        $("#cn-ball").css({ left: (pos.x - bx) + "px", top: (pos.y - by) + "px", right: "auto" });
     });
 
     $(document).on("mouseup touchend", function () {
         if (ballDrag && !ballMoved) {
-            // 点击 → 打开面板
             openPanel();
             showView("editor");
         }
@@ -530,46 +482,31 @@ function setupDrag() {
 //  事件绑定
 // ============================================================
 function bindEvents() {
-    const d = ensureData();
-
-    // 关闭
     $(document).on("click", ".cn-btn-close", closePanel);
 
-    // 遮罩点击
     $(document).on("click", "#cn-overlay", function () {
-        if (d.config.collapseOnBlur) {
-            closePanel();
-        }
+        const d = ensureData();
+        if (d.config.collapseOnBlur) closePanel();
     });
 
-    // 悬浮模式切换
     $(document).on("click", ".cn-btn-float", function () {
         state.isFloating ? exitFloat() : enterFloat();
     });
 
-    // 导航：设置
-    $(document).on("click", ".cn-go-settings", function () {
-        showView("settings");
-    });
+    $(document).on("click", ".cn-go-settings", function () { showView("settings"); });
 
-    // 导航：存档列表
     $(document).on("click", ".cn-go-archives", function () {
         showView("archives");
         renderArchiveList();
         $("#cn-search").val("");
     });
 
-    // 导航：返回编辑器
-    $(document).on("click", ".cn-go-back-editor", function () {
-        showView("editor");
-    });
+    $(document).on("click", ".cn-go-back-editor", function () { showView("editor"); });
 
-    // 搜索
     $(document).on("input", "#cn-search", function () {
         renderArchiveList($(this).val());
     });
 
-    // 点击存档卡片
     $(document).on("click", ".cn-archive-card", function (e) {
         if ($(e.target).closest(".cn-card-delete").length) return;
         state.currentArchiveId = $(this).data("id");
@@ -577,16 +514,11 @@ function bindEvents() {
         showView("editor");
     });
 
-    // 删除存档
     $(document).on("click", ".cn-card-delete", function (e) {
         e.stopPropagation();
         const id = $(this).data("id");
         const charKey = getCharKey();
-        const archives = getArchives(charKey);
-        if (archives.length <= 1) {
-            alert("至少保留一个笔记！");
-            return;
-        }
+        if (getArchives(charKey).length <= 1) { alert("至少保留一个笔记！"); return; }
         if (!confirm("确定删除这条笔记？")) return;
         deleteArchive(charKey, id);
         if (state.currentArchiveId === id) {
@@ -596,7 +528,6 @@ function bindEvents() {
         renderArchiveList($("#cn-search").val());
     });
 
-    // 新建存档
     $(document).on("click", "#cn-archive-add", function () {
         const charKey = getCharKey();
         if (!charKey) return;
@@ -604,154 +535,131 @@ function bindEvents() {
         state.currentArchiveId = entry.id;
         loadArchiveContent();
         showView("editor");
-        // 自动聚焦标题
-        setTimeout(() => {
-            $("#cn-archive-title").focus().select();
-        }, 100);
+        setTimeout(() => { $("#cn-archive-title").focus().select(); }, 100);
     });
 
-    // 编辑器自动保存
     $(document).on("input", "#cn-textarea", queueSave);
     $(document).on("input", "#cn-archive-title", queueSave);
 
-    // 设置项
+    // 设置
     $(document).on("change", "#cn-opt-theme", function () {
+        const d = ensureData();
         d.config.theme = $(this).val();
         saveSettingsDebounced();
         applyTheme();
-        // 显隐自定义CSS框
-        if (d.config.theme === "custom") {
-            $("#cn-custom-css-group").show();
-        } else {
-            $("#cn-custom-css-group").hide();
-        }
+        $("#cn-custom-css-group").toggle(d.config.theme === "custom");
     });
 
     $(document).on("input", "#cn-opt-custom-css", function () {
+        const d = ensureData();
         d.config.customCSS = $(this).val();
         saveSettingsDebounced();
         applyTheme();
     });
 
     $(document).on("change", "#cn-opt-ball", function () {
+        const d = ensureData();
         d.config.showBall = this.checked;
         saveSettingsDebounced();
-        if (this.checked) {
-            state.isBallVisible = true;
-            $("#cn-ball").fadeIn(200);
-        } else {
-            state.isBallVisible = false;
-            $("#cn-ball").fadeOut(200);
-        }
+        this.checked ? $("#cn-ball").fadeIn(200) : $("#cn-ball").fadeOut(200);
     });
 
     $(document).on("change", "#cn-opt-blur-close", function () {
+        const d = ensureData();
         d.config.collapseOnBlur = this.checked;
         saveSettingsDebounced();
     });
 }
 
-// ============================================================
-//  加载设置到UI
-// ============================================================
 function loadSettingsUI() {
     const d = ensureData();
     $("#cn-opt-theme").val(d.config.theme);
     $("#cn-opt-custom-css").val(d.config.customCSS || "");
     $("#cn-opt-ball").prop("checked", d.config.showBall);
     $("#cn-opt-blur-close").prop("checked", d.config.collapseOnBlur);
-
-    if (d.config.theme === "custom") {
-        $("#cn-custom-css-group").show();
-    }
-
-    if (d.config.showBall) {
-        state.isBallVisible = true;
-        $("#cn-ball").show();
-    }
+    if (d.config.theme === "custom") $("#cn-custom-css-group").show();
+    if (d.config.showBall) $("#cn-ball").show();
 }
 
 // ============================================================
-//  菜单注入 —— setInterval 轮询等待 ST 菜单就绪
+//  菜单注入
 // ============================================================
 function injectMenuButton() {
     const poll = setInterval(() => {
-        // ST 扩展菜单在不同版本 ID 可能不同，遍历查找
+        // 你的 ST 截图确认存在 extensionsMenu（驼峰）
         const menu = document.getElementById("extensionsMenu")
-            || document.getElementById("extensions_menu")
-            || document.querySelector("#data_bank_wand_container");
+            || document.getElementById("extensions_menu");
 
         if (!menu) return;
-        if (document.getElementById("cn-menu-entry")) {
-            clearInterval(poll);
-            return;
-        }
+        if (document.getElementById("cn-menu-entry")) { clearInterval(poll); return; }
 
         const entry = document.createElement("div");
         entry.id = "cn-menu-entry";
         entry.className = "list-group-item flex-container flexGap5 interactable";
         entry.tabIndex = 0;
         entry.title = "角色笔记本";
-        entry.innerHTML = `<span><i class="fa-solid fa-book-journal-whills fa-fw"></i></span><span>笔记本</span>`;
+        entry.innerHTML = '<span><i class="fa-solid fa-book-journal-whills fa-fw"></i></span><span>笔记本</span>';
 
         entry.addEventListener("click", () => {
-            // 收起扩展菜单
+            // 点击后收起扩展菜单
             const wand = document.getElementById("extensionsMenuButton");
             if (wand) wand.click();
-
             setTimeout(() => {
-                if (state.isPanelOpen) {
-                    closePanel();
-                } else {
-                    openPanel();
-                    showView("editor");
-                }
+                state.isPanelOpen ? closePanel() : (openPanel(), showView("editor"));
             }, 120);
         });
 
         menu.prepend(entry);
         clearInterval(poll);
-        console.log(`[${EXT_NAME}] 菜单按钮已注入`);
+        console.log(`[${EXT_NAME}] 菜单按钮已注入到`, menu.id);
     }, 500);
 }
 
 // ============================================================
-//  监听角色切换
+//  入口 —— 动态导入，避免静态 import 解析阶段崩溃
 // ============================================================
-async function listenCharSwitch() {
+jQuery(async () => {
+    try {
+        const extModule = await import("../../../extensions.js");
+        extension_settings = extModule.extension_settings;
+        getContext = extModule.getContext;
+
+        // saveSettingsDebounced 可能在 extensions.js 或 script.js
+        if (typeof extModule.saveSettingsDebounced === "function") {
+            saveSettingsDebounced = extModule.saveSettingsDebounced;
+        } else {
+            const scriptModule = await import("../../../../script.js");
+            saveSettingsDebounced = scriptModule.saveSettingsDebounced;
+        }
+
+        console.log(`[${EXT_NAME}] 依赖加载成功`);
+    } catch (err) {
+        console.error(`[${EXT_NAME}] 依赖加载失败:`, err);
+        return;
+    }
+
+    ensureData();
+    $("body").append(buildHTML());
+    applyTheme();
+    loadSettingsUI();
+    bindEvents();
+    setupDrag();
+    injectMenuButton();
+
+    // 监听角色切换
     try {
         const { eventSource, event_types } = await import("../../../../script.js");
         eventSource.on(event_types.CHAT_CHANGED, () => {
             state.currentArchiveId = null;
             if (state.isPanelOpen) {
                 loadCurrentChar();
-                if (state.currentView === "archives") {
-                    renderArchiveList();
-                }
+                if (state.currentView === "archives") renderArchiveList();
             }
         });
-        console.log(`[${EXT_NAME}] 角色切换监听已绑定`);
+        console.log(`[${EXT_NAME}] CHAT_CHANGED 监听已绑定`);
     } catch (e) {
-        console.warn(`[${EXT_NAME}] 无法监听角色切换事件:`, e.message);
+        console.warn(`[${EXT_NAME}] 无法监听角色切换:`, e.message);
     }
-}
-
-// ============================================================
-//  入口
-// ============================================================
-jQuery(async () => {
-    ensureData();
-
-    // 注入 HTML
-    $("body").append(buildHTML());
-
-    // 初始化
-    applyTheme();
-    loadSettingsUI();
-    bindEvents();
-    setupDrag();
-    injectMenuButton();
-    await listenCharSwitch();
 
     console.log(`[${EXT_NAME}] v${VERSION} 加载完成`);
 });
