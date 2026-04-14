@@ -1,26 +1,94 @@
 /**
  * Character Notebook - SillyTavern Extension
- * 为每个角色卡附加私人笔记本
- * Author: 时鸢
- * License: MIT
+ * Author: 时鸢 | v1.1.0
  */
 
 const EXT_NAME = "cn-notebook";
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 
 console.log(`[${EXT_NAME}] 脚本开始加载...`);
 
 // ============================================================
-//  默认配置
+//  默认配置 & 内置主题
 // ============================================================
-const DEFAULT_CONFIG = {
-    showBall: false,
-    theme: "minimal",
-    customCSS: "",
-    collapseOnBlur: false,
+const BUILTIN_THEMES = {
+    "minimal-dark": {
+        name: "极简·夜",
+        builtin: true,
+        vars: {
+            "--cn-bg": "#1a1a1a",
+            "--cn-bg-secondary": "#242424",
+            "--cn-bg-hover": "#2e2e2e",
+            "--cn-bg-active": "#383838",
+            "--cn-text": "#e8e8e8",
+            "--cn-text-secondary": "#aaa",
+            "--cn-text-muted": "#666",
+            "--cn-border": "#333",
+            "--cn-accent": "#ccc",
+            "--cn-shadow": "0 8px 32px rgba(0,0,0,0.5)",
+            "--cn-backdrop": "none",
+        },
+    },
+    "minimal-light": {
+        name: "极简·昼",
+        builtin: true,
+        vars: {
+            "--cn-bg": "#f5f5f5",
+            "--cn-bg-secondary": "#eaeaea",
+            "--cn-bg-hover": "#e0e0e0",
+            "--cn-bg-active": "#d5d5d5",
+            "--cn-text": "#1a1a1a",
+            "--cn-text-secondary": "#555",
+            "--cn-text-muted": "#999",
+            "--cn-border": "#d0d0d0",
+            "--cn-accent": "#333",
+            "--cn-shadow": "0 8px 32px rgba(0,0,0,0.12)",
+            "--cn-backdrop": "none",
+        },
+    },
+    glass: {
+        name: "毛玻璃",
+        builtin: true,
+        vars: {
+            "--cn-bg": "rgba(20,20,28,0.72)",
+            "--cn-bg-secondary": "rgba(255,255,255,0.05)",
+            "--cn-bg-hover": "rgba(255,255,255,0.08)",
+            "--cn-bg-active": "rgba(255,255,255,0.12)",
+            "--cn-text": "#f0f0f0",
+            "--cn-text-secondary": "rgba(255,255,255,0.65)",
+            "--cn-text-muted": "rgba(255,255,255,0.35)",
+            "--cn-border": "rgba(255,255,255,0.1)",
+            "--cn-accent": "rgba(255,255,255,0.8)",
+            "--cn-shadow": "0 8px 40px rgba(0,0,0,0.4)",
+            "--cn-backdrop": "blur(24px) saturate(1.4)",
+        },
+    },
+    "follow-st": {
+        name: "跟随ST主题",
+        builtin: true,
+        vars: {
+            "--cn-bg": "var(--SmartThemeChatBackgroundColor,#1a1a1a)",
+            "--cn-bg-secondary": "var(--SmartThemeBlurTintColor,#242424)",
+            "--cn-bg-hover": "var(--SmartThemeBlurTintColor,#2e2e2e)",
+            "--cn-bg-active": "var(--SmartThemeBorderColor,#383838)",
+            "--cn-text": "var(--SmartThemeBodyColor,#e8e8e8)",
+            "--cn-text-secondary": "var(--SmartThemeEmColor,#aaa)",
+            "--cn-text-muted": "var(--SmartThemeQuoteColor,#666)",
+            "--cn-border": "var(--SmartThemeBorderColor,#333)",
+            "--cn-accent": "var(--SmartThemeBodyColor,#ccc)",
+            "--cn-shadow": "0 8px 32px rgba(0,0,0,0.4)",
+            "--cn-backdrop": "none",
+        },
+    },
 };
 
-// 运行时引用（动态导入后填充）
+const DEFAULT_CONFIG = {
+    showBall: false,
+    activeTheme: "minimal-dark",
+    collapseOnBlur: false,
+    userThemes: {},
+};
+
 let extension_settings = null;
 let getContext = null;
 let saveSettingsDebounced = null;
@@ -32,14 +100,20 @@ function ensureData() {
     const d = extension_settings[EXT_NAME];
     if (!d.config) d.config = { ...DEFAULT_CONFIG };
     if (!d.notes) d.notes = {};
+    if (!d.config.userThemes) d.config.userThemes = {};
     for (const k of Object.keys(DEFAULT_CONFIG)) {
         if (d.config[k] === undefined) d.config[k] = DEFAULT_CONFIG[k];
     }
     return d;
 }
 
+function getAllThemes() {
+    const d = ensureData();
+    return { ...BUILTIN_THEMES, ...d.config.userThemes };
+}
+
 // ============================================================
-//  工具函数
+//  工具
 // ============================================================
 function getCharKey() {
     const ctx = getContext();
@@ -113,6 +187,7 @@ let state = {
     currentArchiveId: null,
     isFloating: false,
     isPanelOpen: false,
+    avatarSpinning: false,
 };
 
 // ============================================================
@@ -123,15 +198,14 @@ function buildHTML() {
 <div id="cn-ball" class="cn-ball" style="display:none;" title="打开笔记本">
     <i class="fa-solid fa-feather-pointed"></i>
 </div>
-
 <div id="cn-overlay" class="cn-overlay" style="display:none;"></div>
+<div id="cn-panel" class="cn-panel" style="display:none;">
 
-<div id="cn-panel" class="cn-panel cn-theme-minimal" style="display:none;">
     <!-- 编辑器 -->
     <div id="cn-view-editor" class="cn-view">
         <div class="cn-topbar">
             <button class="cn-btn-icon cn-go-settings" title="设置"><i class="fa-solid fa-gear"></i></button>
-            <div class="cn-char-info cn-go-archives" title="点击查看存档列表">
+            <div class="cn-char-info cn-avatar-toggle" title="点击切换存档列表">
                 <div class="cn-avatar-wrap">
                     <img class="cn-avatar" src="" alt="" style="display:none;">
                     <div class="cn-avatar-fallback"><i class="fa-solid fa-user"></i></div>
@@ -155,8 +229,7 @@ function buildHTML() {
     <!-- 存档列表 -->
     <div id="cn-view-archives" class="cn-view" style="display:none;">
         <div class="cn-topbar">
-            <button class="cn-btn-icon cn-go-back-editor" title="返回"><i class="fa-solid fa-arrow-left"></i></button>
-            <div class="cn-char-info">
+            <div class="cn-char-info cn-avatar-toggle" title="点击返回编辑器">
                 <div class="cn-avatar-wrap">
                     <img class="cn-avatar" src="" alt="" style="display:none;">
                     <div class="cn-avatar-fallback"><i class="fa-solid fa-user"></i></div>
@@ -185,23 +258,19 @@ function buildHTML() {
         <div class="cn-settings-body">
             <div class="cn-setting-group">
                 <label class="cn-setting-label">主题</label>
-                <select id="cn-opt-theme" class="cn-select">
-                    <option value="minimal">极简黑白</option>
-                    <option value="glass">毛玻璃</option>
-                    <option value="follow-st">跟随ST主题</option>
-                    <option value="custom">自定义</option>
-                </select>
+                <select id="cn-opt-theme" class="cn-select"></select>
             </div>
-            <div id="cn-custom-css-group" class="cn-setting-group" style="display:none;">
-                <label class="cn-setting-label">自定义CSS</label>
-                <textarea id="cn-opt-custom-css" class="cn-custom-css-input" placeholder="粘贴你的CSS变量覆盖..."></textarea>
+            <div class="cn-setting-group cn-theme-actions">
+                <button id="cn-theme-import" class="cn-btn-small">导入主题</button>
+                <button id="cn-theme-export" class="cn-btn-small">导出当前</button>
+                <button id="cn-theme-delete" class="cn-btn-small cn-btn-danger" style="display:none;">删除主题</button>
             </div>
             <div class="cn-setting-group cn-setting-row">
                 <label class="cn-setting-label" for="cn-opt-ball">显示悬浮球</label>
                 <input type="checkbox" id="cn-opt-ball" class="cn-checkbox" />
             </div>
             <div class="cn-setting-group cn-setting-row">
-                <label class="cn-setting-label" for="cn-opt-blur-close">点击空白区域收起面板</label>
+                <label class="cn-setting-label" for="cn-opt-blur-close">点击空白区域收起</label>
                 <input type="checkbox" id="cn-opt-blur-close" class="cn-checkbox" />
             </div>
             <div class="cn-setting-group">
@@ -210,12 +279,16 @@ function buildHTML() {
         </div>
     </div>
 
-    <div id="cn-resize-handle" class="cn-resize-handle" style="display:none;"></div>
+    <!-- 四角缩放手柄（悬浮模式） -->
+    <div class="cn-resize-handle cn-resize-tl" style="display:none;"></div>
+    <div class="cn-resize-handle cn-resize-tr" style="display:none;"></div>
+    <div class="cn-resize-handle cn-resize-bl" style="display:none;"></div>
+    <div class="cn-resize-handle cn-resize-br" style="display:none;"></div>
 </div>`;
 }
 
 // ============================================================
-//  视图
+//  视图切换（带头像旋转动画）
 // ============================================================
 function showView(name) {
     state.currentView = name;
@@ -223,22 +296,135 @@ function showView(name) {
     $(`#cn-view-${name}`).show();
 }
 
-// ============================================================
-//  主题
-// ============================================================
-function applyTheme() {
-    const d = ensureData();
-    const panel = $("#cn-panel");
-    panel.removeClass("cn-theme-minimal cn-theme-glass cn-theme-follow-st cn-theme-custom");
-    panel.addClass(`cn-theme-${d.config.theme}`);
-    $("#cn-custom-style").remove();
-    if (d.config.theme === "custom" && d.config.customCSS) {
-        $("head").append(`<style id="cn-custom-style">${d.config.customCSS}</style>`);
-    }
+function spinAvatarAndSwitch(targetView) {
+    if (state.avatarSpinning) return;
+    state.avatarSpinning = true;
+
+    $(".cn-avatar-wrap").addClass("cn-spin");
+
+    setTimeout(() => {
+        showView(targetView);
+        if (targetView === "archives") {
+            renderArchiveList();
+            $("#cn-search").val("");
+        }
+    }, 250); // 半圈时切视图
+
+    setTimeout(() => {
+        $(".cn-avatar-wrap").removeClass("cn-spin");
+        state.avatarSpinning = false;
+    }, 500); // 动画完成
 }
 
 // ============================================================
-//  面板开关
+//  主题系统
+// ============================================================
+function applyTheme() {
+    const d = ensureData();
+    const themes = getAllThemes();
+    const theme = themes[d.config.activeTheme] || themes["minimal-dark"];
+    const panel = document.getElementById("cn-panel");
+    if (!panel) return;
+
+    // 应用 CSS 变量
+    for (const [k, v] of Object.entries(theme.vars)) {
+        panel.style.setProperty(k, v);
+    }
+
+    // 毛玻璃需要额外设置 backdrop-filter
+    if (theme.vars["--cn-backdrop"] && theme.vars["--cn-backdrop"] !== "none") {
+        panel.style.backdropFilter = theme.vars["--cn-backdrop"];
+        panel.style.webkitBackdropFilter = theme.vars["--cn-backdrop"];
+    } else {
+        panel.style.backdropFilter = "none";
+        panel.style.webkitBackdropFilter = "none";
+    }
+}
+
+function renderThemeSelect() {
+    const d = ensureData();
+    const themes = getAllThemes();
+    const sel = $("#cn-opt-theme");
+    sel.empty();
+    for (const [id, t] of Object.entries(themes)) {
+        sel.append(`<option value="${id}">${escapeHtml(t.name)}${t.builtin ? "" : " (自定义)"}</option>`);
+    }
+    sel.val(d.config.activeTheme);
+    updateDeleteButton();
+}
+
+function updateDeleteButton() {
+    const d = ensureData();
+    const themes = getAllThemes();
+    const current = themes[d.config.activeTheme];
+    if (current && !current.builtin) {
+        $("#cn-theme-delete").show();
+    } else {
+        $("#cn-theme-delete").hide();
+    }
+}
+
+function exportTheme() {
+    const d = ensureData();
+    const themes = getAllThemes();
+    const theme = themes[d.config.activeTheme];
+    if (!theme) return;
+    const data = { name: theme.name, vars: theme.vars };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cn-theme-${d.config.activeTheme}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function importTheme() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const data = JSON.parse(ev.target.result);
+                if (!data.name || !data.vars) {
+                    alert("无效的主题文件：缺少 name 或 vars 字段");
+                    return;
+                }
+                const d = ensureData();
+                const id = `user_${Date.now()}`;
+                d.config.userThemes[id] = { name: data.name, builtin: false, vars: data.vars };
+                d.config.activeTheme = id;
+                saveSettingsDebounced();
+                renderThemeSelect();
+                applyTheme();
+            } catch (err) {
+                alert("主题文件解析失败：" + err.message);
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+function deleteCurrentTheme() {
+    const d = ensureData();
+    const themes = getAllThemes();
+    const current = themes[d.config.activeTheme];
+    if (!current || current.builtin) return;
+    if (!confirm(`确定删除主题「${current.name}」？`)) return;
+    delete d.config.userThemes[d.config.activeTheme];
+    d.config.activeTheme = "minimal-dark";
+    saveSettingsDebounced();
+    renderThemeSelect();
+    applyTheme();
+}
+
+// ============================================================
+//  面板
 // ============================================================
 function openPanel() {
     state.isPanelOpen = true;
@@ -258,13 +444,12 @@ function closePanel() {
 }
 
 // ============================================================
-//  角色数据加载
+//  角色 & 存档
 // ============================================================
 function loadCurrentChar() {
     const charKey = getCharKey();
     const charName = getCharName();
     const avatarUrl = getCharAvatar();
-
     $(".cn-char-name").text(charKey ? charName : "未选择角色");
 
     if (avatarUrl) {
@@ -285,9 +470,7 @@ function loadCurrentChar() {
     $("#cn-archive-title").prop("disabled", false);
 
     const archives = getArchives(charKey);
-    if (!archives.length) {
-        createArchive(charKey, "默认笔记");
-    }
+    if (!archives.length) createArchive(charKey, "默认笔记");
     if (!state.currentArchiveId || !archives.find(a => a.id === state.currentArchiveId)) {
         state.currentArchiveId = archives[0].id;
     }
@@ -304,48 +487,37 @@ function loadArchiveContent() {
     $("#cn-save-status").text("");
 }
 
-// ============================================================
-//  存档列表
-// ============================================================
 function renderArchiveList(filter) {
     const charKey = getCharKey();
     const container = $("#cn-archive-list");
     container.empty();
 
-    if (!charKey) {
-        container.append('<div class="cn-empty">未选择角色</div>');
-        return;
-    }
+    if (!charKey) { container.append('<div class="cn-empty">未选择角色</div>'); return; }
 
     let archives = getArchives(charKey);
     if (filter) {
         const q = filter.toLowerCase();
-        archives = archives.filter(a =>
-            a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q)
-        );
+        archives = archives.filter(a => a.title.toLowerCase().includes(q) || a.content.toLowerCase().includes(q));
     }
-
-    if (!archives.length) {
-        container.append('<div class="cn-empty">没有找到笔记</div>');
-        return;
-    }
+    if (!archives.length) { container.append('<div class="cn-empty">没有找到笔记</div>'); return; }
 
     archives.forEach(a => {
         const isActive = a.id === state.currentArchiveId;
         const preview = a.content.slice(0, 50).replace(/\n/g, " ") || "空笔记";
-        const card = $(`
+        container.append(`
             <div class="cn-archive-card ${isActive ? "cn-active" : ""}" data-id="${a.id}">
-                <div class="cn-card-header">
-                    <span class="cn-card-title">${escapeHtml(a.title)}</span>
-                    <span class="cn-card-date">${formatDate(a.updated)}</span>
+                <div class="cn-card-main">
+                    <div class="cn-card-header">
+                        <span class="cn-card-title">${escapeHtml(a.title)}</span>
+                        <span class="cn-card-date">${formatDate(a.updated)}</span>
+                    </div>
+                    <div class="cn-card-preview">${escapeHtml(preview)}</div>
                 </div>
-                <div class="cn-card-preview">${escapeHtml(preview)}</div>
                 <button class="cn-card-delete" data-id="${a.id}" title="删除">
                     <i class="fa-solid fa-trash-can"></i>
                 </button>
             </div>
         `);
-        container.append(card);
     });
 }
 
@@ -353,7 +525,6 @@ function renderArchiveList(filter) {
 //  保存
 // ============================================================
 let saveTimer = null;
-
 function saveCurrentNote() {
     const charKey = getCharKey();
     if (!charKey || !state.currentArchiveId) return;
@@ -365,7 +536,6 @@ function saveCurrentNote() {
     saveSettingsDebounced();
     $("#cn-save-status").text("已保存 ✓");
 }
-
 function queueSave() {
     clearTimeout(saveTimer);
     $("#cn-save-status").text("编辑中...");
@@ -373,48 +543,39 @@ function queueSave() {
 }
 
 // ============================================================
-//  悬浮模式
+//  悬浮
 // ============================================================
 function enterFloat() {
     state.isFloating = true;
-    const panel = $("#cn-panel");
-    panel.addClass("cn-floating");
-    $("#cn-resize-handle").show();
+    $("#cn-panel").addClass("cn-floating");
+    $(".cn-resize-handle").show();
     $("#cn-overlay").hide();
-    panel.css({
-        left: "calc(50vw - 180px)",
-        top: "calc(50vh - 250px)",
-        width: "360px",
-        height: "500px",
-    });
+    $("#cn-panel").css({ left: "calc(50vw - 180px)", top: "calc(50vh - 250px)", width: "360px", height: "500px" });
     $(".cn-btn-float i").attr("class", "fa-solid fa-compress");
 }
 
 function exitFloat() {
     state.isFloating = false;
-    const panel = $("#cn-panel");
-    panel.removeClass("cn-floating");
-    $("#cn-resize-handle").hide();
-    panel.css({ left: "", top: "", width: "", height: "" });
+    $("#cn-panel").removeClass("cn-floating");
+    $(".cn-resize-handle").hide();
+    $("#cn-panel").css({ left: "", top: "", width: "", height: "" });
     $(".cn-btn-float i").attr("class", "fa-solid fa-up-right-and-down-left-from-center");
-    if (state.isPanelOpen) {
-        $("#cn-overlay").show();
-    }
+    if (state.isPanelOpen) $("#cn-overlay").show();
 }
 
 // ============================================================
-//  拖拽 & 缩放
+//  拖拽 & 四角缩放
 // ============================================================
 function setupDrag() {
     let dragging = false, ox = 0, oy = 0;
-
     function getPos(e) {
         const t = e.originalEvent?.touches;
         return t ? { x: t[0].clientX, y: t[0].clientY } : { x: e.clientX, y: e.clientY };
     }
 
+    // 面板拖拽
     $(document).on("mousedown touchstart", ".cn-floating .cn-topbar", function (e) {
-        if ($(e.target).closest(".cn-btn-icon, .cn-char-info").length) return;
+        if ($(e.target).closest(".cn-btn-icon, .cn-char-info, .cn-avatar-toggle").length) return;
         dragging = true;
         const pos = getPos(e);
         const rect = document.getElementById("cn-panel").getBoundingClientRect();
@@ -422,18 +583,24 @@ function setupDrag() {
         oy = pos.y - rect.top;
         e.preventDefault();
     });
-
     $(document).on("mousemove touchmove", function (e) {
         if (!dragging) return;
         const pos = getPos(e);
         $("#cn-panel").css({ left: (pos.x - ox) + "px", top: (pos.y - oy) + "px" });
     });
-
     $(document).on("mouseup touchend", function () { dragging = false; });
 
-    let resizing = false;
-    $(document).on("mousedown touchstart", "#cn-resize-handle", function (e) {
+    // 四角缩放
+    let resizing = false, resizeCorner = "", startRect = null, startPos = null;
+    $(document).on("mousedown touchstart", ".cn-resize-handle", function (e) {
         resizing = true;
+        const el = this;
+        if (el.classList.contains("cn-resize-tl")) resizeCorner = "tl";
+        else if (el.classList.contains("cn-resize-tr")) resizeCorner = "tr";
+        else if (el.classList.contains("cn-resize-bl")) resizeCorner = "bl";
+        else resizeCorner = "br";
+        startPos = getPos(e);
+        startRect = document.getElementById("cn-panel").getBoundingClientRect();
         e.preventDefault();
         e.stopPropagation();
     });
@@ -441,52 +608,55 @@ function setupDrag() {
     $(document).on("mousemove touchmove", function (e) {
         if (!resizing) return;
         const pos = getPos(e);
-        const rect = document.getElementById("cn-panel").getBoundingClientRect();
-        $("#cn-panel").css({
-            width: Math.max(280, pos.x - rect.left + 8) + "px",
-            height: Math.max(350, pos.y - rect.top + 8) + "px",
-        });
-    });
+        const dx = pos.x - startPos.x;
+        const dy = pos.y - startPos.y;
+        const p = $("#cn-panel");
+        const minW = 280, minH = 350;
 
+        if (resizeCorner === "br") {
+            p.css({ width: Math.max(minW, startRect.width + dx) + "px", height: Math.max(minH, startRect.height + dy) + "px" });
+        } else if (resizeCorner === "bl") {
+            const newW = Math.max(minW, startRect.width - dx);
+            p.css({ width: newW + "px", left: (startRect.right - newW) + "px", height: Math.max(minH, startRect.height + dy) + "px" });
+        } else if (resizeCorner === "tr") {
+            const newH = Math.max(minH, startRect.height - dy);
+            p.css({ width: Math.max(minW, startRect.width + dx) + "px", height: newH + "px", top: (startRect.bottom - newH) + "px" });
+        } else if (resizeCorner === "tl") {
+            const newW = Math.max(minW, startRect.width - dx);
+            const newH = Math.max(minH, startRect.height - dy);
+            p.css({ width: newW + "px", left: (startRect.right - newW) + "px", height: newH + "px", top: (startRect.bottom - newH) + "px" });
+        }
+    });
     $(document).on("mouseup touchend", function () { resizing = false; });
 
     // 悬浮球拖拽
     let ballDrag = false, ballMoved = false, bx = 0, by = 0;
-
     $(document).on("mousedown touchstart", "#cn-ball", function (e) {
-        ballDrag = true;
-        ballMoved = false;
+        ballDrag = true; ballMoved = false;
         const pos = getPos(e);
         const rect = this.getBoundingClientRect();
-        bx = pos.x - rect.left;
-        by = pos.y - rect.top;
+        bx = pos.x - rect.left; by = pos.y - rect.top;
     });
-
     $(document).on("mousemove touchmove", function (e) {
         if (!ballDrag) return;
         ballMoved = true;
         const pos = getPos(e);
         $("#cn-ball").css({ left: (pos.x - bx) + "px", top: (pos.y - by) + "px", right: "auto" });
     });
-
     $(document).on("mouseup touchend", function () {
-        if (ballDrag && !ballMoved) {
-            openPanel();
-            showView("editor");
-        }
+        if (ballDrag && !ballMoved) { openPanel(); showView("editor"); }
         ballDrag = false;
     });
 }
 
 // ============================================================
-//  事件绑定
+//  事件
 // ============================================================
 function bindEvents() {
     $(document).on("click", ".cn-btn-close", closePanel);
 
     $(document).on("click", "#cn-overlay", function () {
-        const d = ensureData();
-        if (d.config.collapseOnBlur) closePanel();
+        if (ensureData().config.collapseOnBlur) closePanel();
     });
 
     $(document).on("click", ".cn-btn-float", function () {
@@ -494,24 +664,25 @@ function bindEvents() {
     });
 
     $(document).on("click", ".cn-go-settings", function () { showView("settings"); });
-
-    $(document).on("click", ".cn-go-archives", function () {
-        showView("archives");
-        renderArchiveList();
-        $("#cn-search").val("");
-    });
-
     $(document).on("click", ".cn-go-back-editor", function () { showView("editor"); });
 
-    $(document).on("input", "#cn-search", function () {
-        renderArchiveList($(this).val());
+    // ★ 头像点击：旋转半圈切换视图
+    $(document).on("click", ".cn-avatar-toggle", function () {
+        if (state.currentView === "editor") {
+            spinAvatarAndSwitch("archives");
+        } else if (state.currentView === "archives") {
+            spinAvatarAndSwitch("editor");
+        }
     });
 
+    $(document).on("input", "#cn-search", function () { renderArchiveList($(this).val()); });
+
+    // 点击存档卡片：旋转头像回编辑器
     $(document).on("click", ".cn-archive-card", function (e) {
         if ($(e.target).closest(".cn-card-delete").length) return;
         state.currentArchiveId = $(this).data("id");
         loadArchiveContent();
-        showView("editor");
+        spinAvatarAndSwitch("editor");
     });
 
     $(document).on("click", ".cn-card-delete", function (e) {
@@ -534,28 +705,25 @@ function bindEvents() {
         const entry = createArchive(charKey, "未命名笔记");
         state.currentArchiveId = entry.id;
         loadArchiveContent();
-        showView("editor");
-        setTimeout(() => { $("#cn-archive-title").focus().select(); }, 100);
+        spinAvatarAndSwitch("editor");
+        setTimeout(() => { $("#cn-archive-title").focus().select(); }, 550);
     });
 
     $(document).on("input", "#cn-textarea", queueSave);
     $(document).on("input", "#cn-archive-title", queueSave);
 
-    // 设置
+    // 设置：主题切换
     $(document).on("change", "#cn-opt-theme", function () {
         const d = ensureData();
-        d.config.theme = $(this).val();
+        d.config.activeTheme = $(this).val();
         saveSettingsDebounced();
         applyTheme();
-        $("#cn-custom-css-group").toggle(d.config.theme === "custom");
+        updateDeleteButton();
     });
 
-    $(document).on("input", "#cn-opt-custom-css", function () {
-        const d = ensureData();
-        d.config.customCSS = $(this).val();
-        saveSettingsDebounced();
-        applyTheme();
-    });
+    $(document).on("click", "#cn-theme-import", importTheme);
+    $(document).on("click", "#cn-theme-export", exportTheme);
+    $(document).on("click", "#cn-theme-delete", deleteCurrentTheme);
 
     $(document).on("change", "#cn-opt-ball", function () {
         const d = ensureData();
@@ -573,11 +741,9 @@ function bindEvents() {
 
 function loadSettingsUI() {
     const d = ensureData();
-    $("#cn-opt-theme").val(d.config.theme);
-    $("#cn-opt-custom-css").val(d.config.customCSS || "");
+    renderThemeSelect();
     $("#cn-opt-ball").prop("checked", d.config.showBall);
     $("#cn-opt-blur-close").prop("checked", d.config.collapseOnBlur);
-    if (d.config.theme === "custom") $("#cn-custom-css-group").show();
     if (d.config.showBall) $("#cn-ball").show();
 }
 
@@ -586,10 +752,8 @@ function loadSettingsUI() {
 // ============================================================
 function injectMenuButton() {
     const poll = setInterval(() => {
-        // 你的 ST 截图确认存在 extensionsMenu（驼峰）
         const menu = document.getElementById("extensionsMenu")
             || document.getElementById("extensions_menu");
-
         if (!menu) return;
         if (document.getElementById("cn-menu-entry")) { clearInterval(poll); return; }
 
@@ -599,40 +763,33 @@ function injectMenuButton() {
         entry.tabIndex = 0;
         entry.title = "角色笔记本";
         entry.innerHTML = '<span><i class="fa-solid fa-book-journal-whills fa-fw"></i></span><span>笔记本</span>';
-
         entry.addEventListener("click", () => {
-            // 点击后收起扩展菜单
             const wand = document.getElementById("extensionsMenuButton");
             if (wand) wand.click();
             setTimeout(() => {
                 state.isPanelOpen ? closePanel() : (openPanel(), showView("editor"));
             }, 120);
         });
-
         menu.prepend(entry);
         clearInterval(poll);
-        console.log(`[${EXT_NAME}] 菜单按钮已注入到`, menu.id);
+        console.log(`[${EXT_NAME}] 菜单按钮已注入`);
     }, 500);
 }
 
 // ============================================================
-//  入口 —— 动态导入，避免静态 import 解析阶段崩溃
+//  入口
 // ============================================================
 jQuery(async () => {
     try {
         const extModule = await import("../../../extensions.js");
         extension_settings = extModule.extension_settings;
         getContext = extModule.getContext;
-
-        // saveSettingsDebounced 可能在 extensions.js 或 script.js
         if (typeof extModule.saveSettingsDebounced === "function") {
             saveSettingsDebounced = extModule.saveSettingsDebounced;
         } else {
             const scriptModule = await import("../../../../script.js");
             saveSettingsDebounced = scriptModule.saveSettingsDebounced;
         }
-
-        console.log(`[${EXT_NAME}] 依赖加载成功`);
     } catch (err) {
         console.error(`[${EXT_NAME}] 依赖加载失败:`, err);
         return;
@@ -646,7 +803,6 @@ jQuery(async () => {
     setupDrag();
     injectMenuButton();
 
-    // 监听角色切换
     try {
         const { eventSource, event_types } = await import("../../../../script.js");
         eventSource.on(event_types.CHAT_CHANGED, () => {
@@ -656,9 +812,8 @@ jQuery(async () => {
                 if (state.currentView === "archives") renderArchiveList();
             }
         });
-        console.log(`[${EXT_NAME}] CHAT_CHANGED 监听已绑定`);
     } catch (e) {
-        console.warn(`[${EXT_NAME}] 无法监听角色切换:`, e.message);
+        console.warn(`[${EXT_NAME}] 角色切换监听失败:`, e.message);
     }
 
     console.log(`[${EXT_NAME}] v${VERSION} 加载完成`);
