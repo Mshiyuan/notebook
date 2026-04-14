@@ -1,10 +1,10 @@
 /**
- * Character Notebook - Styles
+ * Character Notebook - Styles v1.1
  * Author: 时鸢
  */
 
 /* ============================================================
-   CSS 变量 —— 各主题覆盖这些变量即可
+   基础变量（被主题 JS 动态覆盖）
    ============================================================ */
 .cn-panel {
     --cn-bg: #1a1a1a;
@@ -18,67 +18,10 @@
     --cn-accent: #888;
     --cn-radius: 12px;
     --cn-radius-sm: 8px;
-    --cn-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    --cn-shadow: 0 8px 32px rgba(0,0,0,0.45);
     --cn-backdrop: none;
     --cn-font: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
     --cn-transition: 0.15s ease;
-}
-
-/* ============================================================
-   主题：极简黑白（默认）
-   ============================================================ */
-.cn-theme-minimal {
-    --cn-bg: #1a1a1a;
-    --cn-bg-secondary: #242424;
-    --cn-bg-hover: #2e2e2e;
-    --cn-bg-active: #383838;
-    --cn-text: #e8e8e8;
-    --cn-text-secondary: #aaa;
-    --cn-text-muted: #666;
-    --cn-border: #333;
-    --cn-accent: #ccc;
-    --cn-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-    --cn-backdrop: none;
-}
-
-/* ============================================================
-   主题：毛玻璃
-   ============================================================ */
-.cn-theme-glass {
-    --cn-bg: rgba(20, 20, 28, 0.72);
-    --cn-bg-secondary: rgba(255, 255, 255, 0.05);
-    --cn-bg-hover: rgba(255, 255, 255, 0.08);
-    --cn-bg-active: rgba(255, 255, 255, 0.12);
-    --cn-text: #f0f0f0;
-    --cn-text-secondary: rgba(255, 255, 255, 0.65);
-    --cn-text-muted: rgba(255, 255, 255, 0.35);
-    --cn-border: rgba(255, 255, 255, 0.1);
-    --cn-accent: rgba(255, 255, 255, 0.8);
-    --cn-shadow: 0 8px 40px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
-    --cn-backdrop: blur(24px) saturate(1.4);
-}
-
-.cn-theme-glass .cn-panel,
-.cn-theme-glass {
-    backdrop-filter: var(--cn-backdrop);
-    -webkit-backdrop-filter: var(--cn-backdrop);
-}
-
-/* ============================================================
-   主题：跟随ST
-   ============================================================ */
-.cn-theme-follow-st {
-    --cn-bg: var(--SmartThemeChatBackgroundColor, #1a1a1a);
-    --cn-bg-secondary: var(--SmartThemeBlurTintColor, #242424);
-    --cn-bg-hover: var(--SmartThemeBlurTintColor, #2e2e2e);
-    --cn-bg-active: var(--SmartThemeBorderColor, #383838);
-    --cn-text: var(--SmartThemeBodyColor, #e8e8e8);
-    --cn-text-secondary: var(--SmartThemeEmColor, #aaa);
-    --cn-text-muted: var(--SmartThemeQuoteColor, #666);
-    --cn-border: var(--SmartThemeBorderColor, #333);
-    --cn-accent: var(--SmartThemeBodyColor, #ccc);
-    --cn-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    --cn-backdrop: none;
 }
 
 /* ============================================================
@@ -86,11 +29,9 @@
    ============================================================ */
 .cn-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.4);
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.4);
     z-index: 9998;
 }
 
@@ -117,18 +58,15 @@
     font-family: var(--cn-font);
     font-size: 14px;
     overflow: hidden;
-    backdrop-filter: var(--cn-backdrop);
-    -webkit-backdrop-filter: var(--cn-backdrop);
 }
 
-/* 悬浮模式 */
 .cn-panel.cn-floating {
     transform: none;
     transition: none;
 }
 
 /* ============================================================
-   视图容器
+   视图
    ============================================================ */
 .cn-view {
     display: flex;
@@ -138,7 +76,7 @@
 }
 
 /* ============================================================
-   顶部栏
+   顶栏
    ============================================================ */
 .cn-topbar {
     display: flex;
@@ -188,7 +126,7 @@
 }
 
 /* ============================================================
-   头像
+   头像 & 旋转动画
    ============================================================ */
 .cn-avatar-wrap {
     width: 32px;
@@ -200,6 +138,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.cn-avatar-wrap.cn-spin {
+    transform: rotateY(180deg);
 }
 
 .cn-avatar {
@@ -214,7 +157,7 @@
 }
 
 /* ============================================================
-   通用按钮
+   按钮
    ============================================================ */
 .cn-btn-icon {
     width: 32px;
@@ -237,8 +180,37 @@
     color: var(--cn-text);
 }
 
+.cn-btn-small {
+    padding: 6px 12px;
+    border: 1px solid var(--cn-border);
+    background: var(--cn-bg-secondary);
+    color: var(--cn-text-secondary);
+    border-radius: var(--cn-radius-sm);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: var(--cn-font);
+    transition: all var(--cn-transition);
+}
+
+.cn-btn-small:hover {
+    background: var(--cn-bg-hover);
+    color: var(--cn-text);
+    border-color: var(--cn-text-muted);
+}
+
+.cn-btn-danger {
+    color: #d55;
+    border-color: rgba(220,80,80,0.3);
+}
+
+.cn-btn-danger:hover {
+    background: rgba(220,60,60,0.15);
+    color: #e55;
+    border-color: #d55;
+}
+
 /* ============================================================
-   编辑器视图
+   编辑器
    ============================================================ */
 .cn-archive-title-bar {
     display: flex;
@@ -261,9 +233,7 @@
     padding: 4px 0;
 }
 
-.cn-archive-title-input::placeholder {
-    color: var(--cn-text-muted);
-}
+.cn-archive-title-input::placeholder { color: var(--cn-text-muted); }
 
 .cn-save-status {
     font-size: 12px;
@@ -276,7 +246,6 @@
     flex: 1;
     min-height: 0;
     display: flex;
-    padding: 0;
 }
 
 .cn-textarea {
@@ -294,29 +263,28 @@
     overflow-y: auto;
 }
 
-.cn-textarea::placeholder {
-    color: var(--cn-text-muted);
-}
+.cn-textarea::placeholder { color: var(--cn-text-muted); }
 
 /* 滚动条 */
 .cn-textarea::-webkit-scrollbar,
-.cn-archive-list::-webkit-scrollbar {
+.cn-archive-list::-webkit-scrollbar,
+.cn-settings-body::-webkit-scrollbar {
     width: 4px;
 }
-
 .cn-textarea::-webkit-scrollbar-track,
-.cn-archive-list::-webkit-scrollbar-track {
+.cn-archive-list::-webkit-scrollbar-track,
+.cn-settings-body::-webkit-scrollbar-track {
     background: transparent;
 }
-
 .cn-textarea::-webkit-scrollbar-thumb,
-.cn-archive-list::-webkit-scrollbar-thumb {
+.cn-archive-list::-webkit-scrollbar-thumb,
+.cn-settings-body::-webkit-scrollbar-thumb {
     background: var(--cn-border);
     border-radius: 2px;
 }
 
 /* ============================================================
-   存档列表视图
+   存档列表
    ============================================================ */
 .cn-search-bar {
     display: flex;
@@ -344,9 +312,7 @@
     padding: 4px 0;
 }
 
-.cn-search-input::placeholder {
-    color: var(--cn-text-muted);
-}
+.cn-search-input::placeholder { color: var(--cn-text-muted); }
 
 .cn-archive-list {
     flex: 1;
@@ -359,7 +325,9 @@
 }
 
 .cn-archive-card {
-    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     padding: 10px 12px;
     background: var(--cn-bg-secondary);
     border: 1px solid var(--cn-border);
@@ -376,6 +344,11 @@
 .cn-archive-card.cn-active {
     border-color: var(--cn-accent);
     background: var(--cn-bg-active);
+}
+
+.cn-card-main {
+    flex: 1;
+    min-width: 0;
 }
 
 .cn-card-header {
@@ -407,15 +380,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    padding-right: 24px;
 }
 
+/* ★ 删除按钮：始终可见 */
 .cn-card-delete {
-    position: absolute;
-    right: 8px;
-    bottom: 8px;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -424,17 +394,13 @@
     color: var(--cn-text-muted);
     cursor: pointer;
     border-radius: 4px;
-    font-size: 11px;
-    opacity: 0;
+    font-size: 12px;
+    flex-shrink: 0;
     transition: all var(--cn-transition);
 }
 
-.cn-archive-card:hover .cn-card-delete {
-    opacity: 1;
-}
-
 .cn-card-delete:hover {
-    background: rgba(220, 60, 60, 0.2);
+    background: rgba(220,60,60,0.2);
     color: #e55;
 }
 
@@ -471,7 +437,7 @@
 }
 
 /* ============================================================
-   设置视图
+   设置
    ============================================================ */
 .cn-settings-body {
     flex: 1;
@@ -499,6 +465,11 @@
     color: var(--cn-text);
 }
 
+.cn-theme-actions {
+    flex-direction: row;
+    gap: 8px;
+}
+
 .cn-select {
     width: 100%;
     padding: 8px 10px;
@@ -514,9 +485,7 @@
     appearance: none;
 }
 
-.cn-select:focus {
-    border-color: var(--cn-accent);
-}
+.cn-select:focus { border-color: var(--cn-accent); }
 
 .cn-checkbox {
     width: 18px;
@@ -524,25 +493,6 @@
     accent-color: var(--cn-accent);
     cursor: pointer;
     flex-shrink: 0;
-}
-
-.cn-custom-css-input {
-    width: 100%;
-    min-height: 100px;
-    padding: 8px 10px;
-    background: var(--cn-bg-secondary);
-    color: var(--cn-text);
-    border: 1px solid var(--cn-border);
-    border-radius: var(--cn-radius-sm);
-    font-family: "Cascadia Code", "Fira Code", monospace;
-    font-size: 12px;
-    line-height: 1.5;
-    resize: vertical;
-    outline: none;
-}
-
-.cn-custom-css-input:focus {
-    border-color: var(--cn-accent);
 }
 
 .cn-version-info {
@@ -554,28 +504,72 @@
 }
 
 /* ============================================================
-   缩放手柄
+   四角缩放手柄
    ============================================================ */
 .cn-resize-handle {
     position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 18px;
-    height: 18px;
-    cursor: nwse-resize;
+    width: 20px;
+    height: 20px;
     z-index: 10;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+/* hover 面板 或 拖拽时显示 */
+.cn-panel.cn-floating:hover .cn-resize-handle,
+.cn-panel.cn-floating:active .cn-resize-handle {
+    opacity: 1;
 }
 
 .cn-resize-handle::after {
     content: "";
     position: absolute;
-    right: 4px;
-    bottom: 4px;
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
+}
+
+/* 右下 */
+.cn-resize-br {
+    right: 0; bottom: 0;
+    cursor: nwse-resize;
+}
+.cn-resize-br::after {
+    right: 3px; bottom: 3px;
     border-right: 2px solid var(--cn-text-muted);
     border-bottom: 2px solid var(--cn-text-muted);
-    opacity: 0.5;
+}
+
+/* 左下 */
+.cn-resize-bl {
+    left: 0; bottom: 0;
+    cursor: nesw-resize;
+}
+.cn-resize-bl::after {
+    left: 3px; bottom: 3px;
+    border-left: 2px solid var(--cn-text-muted);
+    border-bottom: 2px solid var(--cn-text-muted);
+}
+
+/* 右上 */
+.cn-resize-tr {
+    right: 0; top: 0;
+    cursor: nesw-resize;
+}
+.cn-resize-tr::after {
+    right: 3px; top: 3px;
+    border-right: 2px solid var(--cn-text-muted);
+    border-top: 2px solid var(--cn-text-muted);
+}
+
+/* 左上 */
+.cn-resize-tl {
+    left: 0; top: 0;
+    cursor: nwse-resize;
+}
+.cn-resize-tl::after {
+    left: 3px; top: 3px;
+    border-left: 2px solid var(--cn-text-muted);
+    border-top: 2px solid var(--cn-text-muted);
 }
 
 /* ============================================================
@@ -583,23 +577,21 @@
    ============================================================ */
 .cn-ball {
     position: fixed;
-    top: 50vh;
-    right: 14px;
-    width: 44px;
-    height: 44px;
+    top: 50vh; right: 14px;
+    width: 44px; height: 44px;
     border-radius: 50%;
-    background: rgba(20, 20, 28, 0.75);
+    background: rgba(20,20,28,0.75);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.8);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 16px;
     cursor: pointer;
     z-index: 9990;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
     user-select: none;
     touch-action: none;
@@ -607,7 +599,7 @@
 
 .cn-ball:hover {
     transform: scale(1.08);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.45);
 }
 
 .cn-ball:active {
@@ -615,7 +607,7 @@
 }
 
 /* ============================================================
-   扩展菜单按钮
+   菜单按钮
    ============================================================ */
 #cn-menu-entry {
     cursor: pointer;
@@ -626,7 +618,7 @@
 }
 
 /* ============================================================
-   移动端适配
+   移动端
    ============================================================ */
 @media (max-width: 480px) {
     .cn-panel:not(.cn-floating) {
