@@ -300,15 +300,12 @@ function spinAvatarAndSwitch(targetView) {
     if (state.avatarSpinning) return;
     state.avatarSpinning = true;
 
-    const wrap = $(".cn-avatar-wrap");
-
-    if (targetView === "archives") {
-        // 顺时针转180°停住
-        wrap.removeClass("cn-spin-out").addClass("cn-spin-in");
-    } else {
-        // 再转180°回原位（共360°）
-        wrap.removeClass("cn-spin-in").addClass("cn-spin-out");
-    }
+    const wrap = $(".cn-avatar-wrap")[0];
+    // 每次都从 0 开始转一圈，用 Web Animations API 避免 class 状态残留
+    wrap.animate(
+        [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }],
+        { duration: 450, easing: "cubic-bezier(0.4, 0, 0.2, 1)" }
+    );
 
     setTimeout(() => {
         showView(targetView);
@@ -320,11 +317,7 @@ function spinAvatarAndSwitch(targetView) {
 
     setTimeout(() => {
         state.avatarSpinning = false;
-        // 回到编辑器时重置class，为下次旋转做准备
-        if (targetView === "editor") {
-            wrap.removeClass("cn-spin-in cn-spin-out");
-        }
-    }, 500);
+    }, 460);
 }
 
 // ============================================================
