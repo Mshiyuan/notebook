@@ -301,10 +301,11 @@ function spinAvatarAndSwitch(targetView) {
     state.avatarSpinning = true;
 
     const wrap = $(".cn-avatar-wrap")[0];
-    // 每次都从 0 开始转一圈，用 Web Animations API 避免 class 状态残留
+    const direction = targetView === "archives" ? 360 : -360;
+
     wrap.animate(
-        [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }],
-        { duration: 450, easing: "cubic-bezier(0.4, 0, 0.2, 1)" }
+        [{ transform: "rotate(0deg)" }, { transform: `rotate(${direction}deg)` }],
+        { duration: 500, easing: "ease-in-out" }
     );
 
     setTimeout(() => {
@@ -313,11 +314,11 @@ function spinAvatarAndSwitch(targetView) {
             renderArchiveList();
             $("#cn-search").val("");
         }
-    }, 220);
+    }, 250);
 
     setTimeout(() => {
         state.avatarSpinning = false;
-    }, 460);
+    }, 520);
 }
 
 // ============================================================
