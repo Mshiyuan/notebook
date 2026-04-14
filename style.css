@@ -138,15 +138,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.cn-avatar-wrap.cn-spin-in {
-    transform: rotate(180deg);
-}
-
-.cn-avatar-wrap.cn-spin-out {
-    transform: rotate(360deg);
 }
 
 .cn-avatar {
