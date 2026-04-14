@@ -300,7 +300,15 @@ function spinAvatarAndSwitch(targetView) {
     if (state.avatarSpinning) return;
     state.avatarSpinning = true;
 
-    $(".cn-avatar-wrap").addClass("cn-spin");
+    const wrap = $(".cn-avatar-wrap");
+
+    if (targetView === "archives") {
+        // 顺时针转180°停住
+        wrap.removeClass("cn-spin-out").addClass("cn-spin-in");
+    } else {
+        // 再转180°回原位（共360°）
+        wrap.removeClass("cn-spin-in").addClass("cn-spin-out");
+    }
 
     setTimeout(() => {
         showView(targetView);
@@ -308,12 +316,15 @@ function spinAvatarAndSwitch(targetView) {
             renderArchiveList();
             $("#cn-search").val("");
         }
-    }, 250); // 半圈时切视图
+    }, 220);
 
     setTimeout(() => {
-        $(".cn-avatar-wrap").removeClass("cn-spin");
         state.avatarSpinning = false;
-    }, 500); // 动画完成
+        // 回到编辑器时重置class，为下次旋转做准备
+        if (targetView === "editor") {
+            wrap.removeClass("cn-spin-in cn-spin-out");
+        }
+    }, 500);
 }
 
 // ============================================================
